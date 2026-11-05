@@ -13,7 +13,7 @@ const ZONAS = {
   'lanterna': { nome: 'Lanternas', termo: 'lanterna', cam: [180, 78, 70] },
   'parachoque-t': { nome: 'Para-choque traseiro', termo: 'para-choque traseiro', cam: [180, 80, 75] }
 };
-const CORES = [['Original', null], ['Branco', [.95, .95, .95]], ['Prata', [.66, .69, .73]], ['Preto', [.04, .04, .05]], ['Vermelho', [.62, .04, .08]], ['Azul', [.05, .2, .62]], ['Verde', [.04, .34, .16]], ['Amarelo', [.92, .7, .05]]];
+const CORES = [['Original', null], ['Branco', [.9, .9, .88]], ['Prata', [.56, .59, .63]], ['Preto', [.02, .02, .025]], ['Vermelho', [.62, .0, .03]], ['Azul', [.02, .12, .52]], ['Verde', [.0, .26, .11]], ['Amarelo', [.96, .66, .0]]];
 const TETA = { '+z': 0, '-z': 180, '+x': 90, '-x': -90 };
 const PLACA_API = '';
 const WHATSAPP = zapLoja();
@@ -198,8 +198,12 @@ function pintar(nome, rgb) {
   const alvos = new Set(atual.paint.materials);
   mv.model.materials.filter((m) => alvos.has(m.name)).forEach((m) => {
     const pbr = m.pbrMetallicRoughness;
-    if (!originais.has(m)) originais.set(m, pbr.baseColorFactor.slice());
-    if (rgb) pbr.setBaseColorFactor([rgb[0], rgb[1], rgb[2], 1]); else if (atual.acabamento) aplicarAcabamento(); else pbr.setBaseColorFactor(originais.get(m));
+    if (!originais.has(m)) originais.set(m, { c: pbr.baseColorFactor.slice(), t: pbr.baseColorTexture && pbr.baseColorTexture.texture, me: pbr.metallicFactor, ro: pbr.roughnessFactor });
+    const o = originais.get(m);
+    /* tinta de carro: cor lisa, metalica e brilhante (sem a textura original, que deixava a cor suja e fosca) */
+    if (rgb) { try { if (pbr.baseColorTexture) pbr.baseColorTexture.setTexture(null); } catch (er) {} pbr.setBaseColorFactor([rgb[0], rgb[1], rgb[2], 1]); pbr.setMetallicFactor(0.62); pbr.setRoughnessFactor(0.2); }
+    else if (atual.acabamento) aplicarAcabamento();
+    else { try { if (pbr.baseColorTexture) pbr.baseColorTexture.setTexture(o.t || null); } catch (er) {} pbr.setBaseColorFactor(o.c); pbr.setMetallicFactor(o.me); pbr.setRoughnessFactor(o.ro); }
   });
 }
 
@@ -281,6 +285,12 @@ const ILHA = {
 const LABEL_ZONA = { 'parachoque-d': 'Para-choque dianteiro', 'parachoque-t': 'Para-choque traseiro', 'portas': 'Portas', 'capo': 'Capô', 'teto': 'Teto', 'parabrisa': 'Parabrisa', 'portamalas': 'Porta-malas', 'rodas': 'Rodas', 'retrovisor': 'Retrovisores', 'farol': 'Faróis', 'lanterna': 'Lanternas' };
 function simboloMV(nome) { return Object.getOwnPropertySymbols(mv).find((s) => s.description === nome); }
 function renderizar() { const s = simboloMV('needsRender'); if (s && typeof mv[s] === 'function') { try { mv[s](); } catch (e) {} } }
+const VIDRO = { 'capo': 'excluir', 'teto': 'excluir', 'portamalas': 'excluir', 'parachoque-d': 'excluir', 'parachoque-t': 'excluir', 'parabrisa': 'so', 'portas': 'incluir' };
+function ehVidro(m) {
+  const mt = Array.isArray(m.material) ? m.material[0] : m.material; if (!mt) return false;
+  const nome = (mt.name || '') + ' ' + (m.name || '');
+  return /glass|vidro|window|windshield|cristal|parabr|lens|lente|visor/i.test(nome) || !!mt.transparent || (mt.opacity !== undefined && mt.opacity < 0.95) || (mt.transmission || 0) > 0.2;
+}
 function malhas() {
   const s = simboloMV('scene'); const cena = s && mv[s]; const l = [];
   if (cena && cena.traverse) cena.traverse((o) => { if (o.isMesh && o.geometry && o.geometry.attributes && o.geometry.attributes.position && !(o.userData && o.userData.c3dPeca)) l.push(o); });
@@ -299,12 +309,17 @@ function desfazerExplosao() {
   explo.restauros.forEach((r) => { if (r.indice !== undefined) r.malha.geometry.setIndex(r.indice); if (r.visivel !== undefined) r.malha.visible = r.visivel; });
   explo.mats.forEach((o, m) => { m.transparent = o.transparent; m.opacity = o.opacity; m.depthWrite = o.depthWrite; m.needsUpdate = true; });
   const tinha = explo.ativa;
+  if (explo.mascara) { explo.mascara.uSt.value[0] = 0; explo.mascara = null; }
   explo.pecas = []; explo.restauros = []; explo.mats = new Map(); explo.ativa = false; explo.zona = null; explo.offMundo = null;
   const et = mv.querySelector('.c3d-etq'); if (et) et.hidden = true;
   if (tinha) { try { mv.cameraTarget = 'auto auto auto'; } catch (e) {} renderizar(); }
 }
 const PELE = {
-  'portas': { eixo: 'w', tol: 0.04, b: { u: [-0.32, 0.28], v: [0.4, 0.78], aw: [0.5, 1.3] }, normal: (nu, ny, nw, lado) => nw * lado > 0.7 },
+  'capo': { eixo: 'y', tol: 0.05, b: { u: [0.22, 0.74], v: [0.4, 1.1], aw: [0, 0.72] }, normal: (nu, ny) => ny > 0.55 },
+  'teto': { eixo: 'y', tol: 0.05, b: { u: [-0.6, 0.28], v: [0.76, 1.1], aw: [0, 0.84] }, normal: (nu, ny) => ny > 0.6 },
+  'parabrisa': { eixo: 'y', tol: 0.06, b: { u: [0.02, 0.5], v: [0.52, 1.1], aw: [0, 0.82] }, normal: (nu, ny) => ny > 0.1 && ny < 0.85 && nu > 0.12 },
+  'portamalas': { eixo: 'y', tol: 0.05, b: { u: [-0.8, -0.26], v: [0.44, 1.1], aw: [0, 0.78] }, normal: (nu, ny) => ny > 0.55 || nu < -0.5 },
+  'portas': { eixo: 'w', tol: 0.07, b: { u: [-0.34, 0.3], v: [0.3, 0.92], aw: [0.45, 1.3] }, normal: (nu, ny, nw, lado) => nw * lado > 0.25 },
   'parachoque-d': { eixo: 'u', sinal: 1, tol: 0.04, b: { u: [0.72, 1.3], v: [-0.1, 0.5], aw: [0, 1.3] }, normal: (nu) => nu > 0.2 },
   'parachoque-t': { eixo: 'u', sinal: -1, tol: 0.04, b: { u: [-1.3, -0.72], v: [-0.1, 0.5], aw: [0, 1.3] }, normal: (nu) => nu < -0.2 },
   'farol': { eixo: 'u', sinal: 1, tol: 0.04, b: { u: [0.72, 1.3], v: [0.4, 0.74], aw: [0.3, 1.3] }, normal: (nu) => nu > 0.2 },
@@ -364,7 +379,104 @@ function componentes(idx, nTri, id, lista) {
   for (let q = 0; q < todos.length; q++) { const t = todos[q]; const r = raiz(vt(t, 0)); let l = mapa.get(r); if (!l) { l = []; mapa.set(r, l); } l.push(t); }
   return [...mapa.values()];
 }
+/* ===== Destaque por mascara no shader: contorno limpo (retangulo arredondado) em vez de recorte de triangulos ===== */
+const MASCARA = {
+  'capo': { modo: 0, u: [0.22, 0.74], w: 0.66, g: [0.4, 1.2], dir: [0, 1, 0], lim: 0.72, raio: 0.05 },
+  'teto': { todos: true, modo: 0, u: [-0.52, 0.26], w: 0.8, g: [0.52, 1.2], dir: [0, 1, 0], lim: -0.55, raio: 0.06 },
+  'portamalas': { modo: 0, u: [-0.8, -0.26], w: 0.72, g: [0.44, 1.2], dir: [-0.45, 0.9, 0], lim: 0.55, raio: 0.05 },
+  'parabrisa': { modo: 0, u: [0.02, 0.5], w: 0.78, g: [0.52, 1.2], dir: [0.55, 0.83, 0], lim: 0.62, raio: 0.05 },
+  'portas': { modo: 1, u: [-0.34, 0.3], v: [0.3, 0.92], g: [0.45, 1.4], dir: [0, 0, 1], lim: 0.3, raio: 0.04 }
+};
+function mascararMaterial(mt, un) {
+  mt.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, un);
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vW3;\nvarying vec3 vN3;')
+      .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\nvN3 = normalize(mat3(modelMatrix) * objectNormal);')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvW3 = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vW3;\nvarying vec3 vN3;\nuniform vec3 uF;\nuniform vec3 uS;\nuniform vec3 uCen;\nuniform vec4 uDim;\nuniform vec4 uBox;\nuniform vec4 uPar;\nuniform vec4 uN;\nuniform vec2 uSt;')
+      .replace('#include <dithering_fragment>',
+        'vec3 d3 = vW3 - uCen; float U = dot(d3, uF); float Wl = dot(d3, uS); float V = vW3.y - uDim.w;\n' +
+        'vec3 nW = normalize(vN3) * (gl_FrontFacing ? 1.0 : -1.0);\n' +
+        'vec3 nC = vec3(dot(nW, uF), nW.y, dot(nW, uS) * (Wl >= 0.0 ? 1.0 : -1.0));\n' +
+        'float gA = uPar.x < 0.5 ? V : abs(Wl); float bB = uPar.x < 0.5 ? abs(Wl) : V;\n' +
+        'vec2 q2 = abs(vec2(U, bB) - uBox.xy) - uBox.zw + vec2(uPar.y);\n' +
+        'float sd = length(max(q2, 0.0)) + min(max(q2.x, q2.y), 0.0) - uPar.y;\n' +
+        'float mk = (1.0 - smoothstep(-0.004, 0.004, sd)) * step(uPar.z, gA) * step(gA, uPar.w) * step(abs(uN.w), uN.w < 0.0 ? abs(dot(nC, uN.xyz)) : dot(nC, uN.xyz)) * uSt.x;\n' +
+        'float lm = dot(gl_FragColor.rgb, vec3(0.33));\n' +
+        'vec3 oc = vec3(1.0, 0.36, 0.0) * (0.78 + 0.5 * lm) * uSt.y;\n' +
+        'gl_FragColor.rgb = mix(gl_FragColor.rgb, oc, mk);\n' +
+        'gl_FragColor.a = mix(gl_FragColor.a, 1.0, mk);\n' +
+        '#include <dithering_fragment>');
+  };
+  mt.customProgramCacheKey = () => 'c3dmask'; mt.needsUpdate = true;
+}
+function destacarMascara(z) {
+  const cfg = MASCARA[z], lista = malhas(); if (!cfg || !lista.length || !atual || !EXPL[z]) return false;
+  const f = atual.frente || '+z', ex = f[1] === 'x', sg = f[0] === '+' ? 1 : -1;
+  const mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9];
+  lista.forEach((m) => {
+    m.updateWorldMatrix(true, false);
+    const p = m.geometry.attributes.position, e = m.matrixWorld.elements;
+    for (let i = 0; i < p.count; i += 3) {
+      const x = p.getX(i), y = p.getY(i), w = p.getZ(i);
+      const X = e[0] * x + e[4] * y + e[8] * w + e[12], Y = e[1] * x + e[5] * y + e[9] * w + e[13], Z = e[2] * x + e[6] * y + e[10] * w + e[14];
+      if (X < mn[0]) mn[0] = X; if (Y < mn[1]) mn[1] = Y; if (Z < mn[2]) mn[2] = Z;
+      if (X > mx[0]) mx[0] = X; if (Y > mx[1]) mx[1] = Y; if (Z > mx[2]) mx[2] = Z;
+    }
+  });
+  const C = [(mn[0] + mx[0]) / 2, (mn[1] + mx[1]) / 2, (mn[2] + mx[2]) / 2], D = [mx[0] - mn[0], mx[1] - mn[1], mx[2] - mn[2]];
+  const L = ex ? D[0] : D[2], W = ex ? D[2] : D[0], H = D[1];
+  const F = ex ? [sg, 0, 0] : [0, 0, sg], S = ex ? [0, 0, 1] : [1, 0, 0];
+  const pint = new Set((atual.paint && atual.paint.materials) || []);
+  const regra = VIDRO[z];
+  const usa = (m) => {
+    const mt = Array.isArray(m.material) ? m.material[0] : m.material; if (!mt) return false;
+    const v = ehVidro(m);
+    if (regra === 'so') return v;
+    if (v) return regra === 'incluir';
+    return (pint.size && !cfg.todos) ? pint.has(mt.name) : true;
+  };
+  const mh = L / 2, c1 = (cfg.u[0] + cfg.u[1]) / 2 * mh, h1 = (cfg.u[1] - cfg.u[0]) / 2 * mh;
+  let c2, h2;
+  if (cfg.modo === 0) { c2 = 0; h2 = cfg.w * (W / 2); } else { c2 = (cfg.v[0] + cfg.v[1]) / 2 * H; h2 = (cfg.v[1] - cfg.v[0]) / 2 * H; }
+  const gl = cfg.modo === 0 ? [cfg.g[0] * H, cfg.g[1] * H] : [cfg.g[0] * (W / 2), cfg.g[1] * (W / 2)];
+  const un = {
+    uF: { value: F }, uS: { value: S }, uCen: { value: C }, uDim: { value: [L / 2, W / 2, H, mn[1]] },
+    uBox: { value: [c1, c2, h1, h2] }, uPar: { value: [cfg.modo, cfg.raio * L, gl[0], gl[1]] }, uN: { value: [cfg.dir[0], cfg.dir[1], cfg.dir[2], cfg.lim] }, uSt: { value: [1, 0.85] }
+  };
+  desfazerExplosao();
+  let alguma = false;
+  lista.forEach((m) => {
+    const mts = Array.isArray(m.material) ? m.material : [m.material];
+    const ok = usa(m);
+    mts.forEach((mt) => {
+      if (!explo.mats.has(mt)) { explo.mats.set(mt, { transparent: mt.transparent, opacity: mt.opacity, depthWrite: mt.depthWrite }); mt.transparent = true; mt.opacity = Math.min(mt.opacity, 0.14); mt.depthWrite = false; }
+      if (ok) { mascararMaterial(mt, un); alguma = true; } else mt.needsUpdate = true;
+    });
+  });
+  if (!alguma) { desfazerExplosao(); return false; }
+  explo.mascara = un; explo.ativa = true; explo.zona = z;
+  const cM = mv.getBoundingBoxCenter(), dM = mv.getDimensions();
+  const mundoMod = (p) => [cM.x + (p[0] - C[0]) * (dM.x / (D[0] || 1)), cM.y + (p[1] - C[1]) * (dM.y / (D[1] || 1)), cM.z + (p[2] - C[2]) * (dM.z / (D[2] || 1))];
+  const cx = ex ? C[0] + sg * c1 : C[0], cz = ex ? C[2] : C[2] + sg * c1;
+  const cy = cfg.modo === 0 ? mn[1] + (cfg.g[0] + 0.08) * H : mn[1] + c2;
+  const topo = mundoMod([cx, cy + 0.08 * H, cz]);
+  try { mv.cameraTarget = topo[0] + 'm ' + (topo[1] - 0.08 * H * (dM.y / (D[1] || 1))) + 'm ' + topo[2] + 'm'; } catch (er) {}
+  explo.pulso = numero(0.85, 1.0, { duration: 1.1, repeat: 3, repeatType: 'reverse', ease: 'easeInOut' }, (v) => { un.uSt.value[1] = v; renderizar(); });
+  const et = mv.querySelector('.c3d-etq');
+  if (et) {
+    et.querySelector('b').textContent = LABEL_ZONA[z] || ZONAS[z].nome;
+    try { mv.updateHotspot({ name: 'hotspot-etq', position: topo[0] + ' ' + topo[1] + ' ' + topo[2], normal: '0 1 0' }); } catch (er) {}
+    et.hidden = false; et.style.opacity = '0';
+    setTimeout(() => { if (explo.ativa) etiquetaEntra(et); }, 300);
+  }
+  renderizar();
+  return true;
+}
 function destacarZona(z, modo) {
+  if (MASCARA[z] && !modo) { try { if (destacarMascara(z)) return true; } catch (er) { desfazerExplosao(); } }
   desfazerExplosao();
   const lista = malhas(); if (!lista.length || !atual || !EXPL[z]) return false;
   const f = atual.frente || '+z', ex = f[1] === 'x', sg = f[0] === '+' ? 1 : -1;
@@ -417,6 +529,7 @@ function destacarZona(z, modo) {
     });
   }
   lista.forEach((m, k) => {
+    if (VIDRO[z] === 'excluir' && ehVidro(m)) return; if (VIDRO[z] === 'so' && !ehVidro(m)) return;
     const g = m.geometry, w = mundo[k], idx = g.index ? g.index.array : null, nTri = Math.floor((idx ? idx.length : g.attributes.position.count) / 3);
     const id = soldar(w), tv = (t, j) => (idx ? idx[t * 3 + j] : t * 3 + j);
     const escolhidos = new Map();
@@ -525,7 +638,7 @@ function destacarZona(z, modo) {
     geo.setIndex(gr.indices);
     const peca = m.clone(false); peca.geometry = geo; peca.material = m.material.clone(); peca.material.side = 2; peca.userData = { c3dPeca: true };
     let un = null; if (gr.clip && PELE[z]) { const bb = limitesMundo(PELE[z], gr.lado); const me = m.matrixWorld.elements; un = cortar(peca.material, bb[0], bb[1], [me[12], me[13], me[14]]); }
-    const pm = peca.material; if (pm.color) pm.color.setRGB(0.85, 0.2, 0.0); pm.map = null; if ('metalness' in pm) { pm.metalness = 0; pm.roughness = 0.6; } pm.transparent = false; pm.opacity = 1; if (pm.emissive) { pm.emissive.setRGB(1, 0.22, 0.0); pm.emissiveIntensity = 0.12; } pm.polygonOffset = true; pm.polygonOffsetFactor = -1; pm.polygonOffsetUnits = -1;
+    const pm = peca.material; if (pm.color) pm.color.setRGB(1, 0.3, 0.0); pm.map = null; if ('metalness' in pm) { pm.metalness = 0; pm.roughness = 0.6; } pm.transparent = false; pm.opacity = 1; if (pm.emissive) { pm.emissive.setRGB(1, 0.24, 0.0); pm.emissiveIntensity = 0.45; } pm.polygonOffset = true; pm.polygonOffsetFactor = -1; pm.polygonOffsetUnits = -1;
     m.parent.add(peca);
     const ox = 0, oy = 0, oz = 0; /* sem deslocamento: a peca so fica laranja no lugar */
     const inv = m.parent.matrixWorld.clone().invert().elements;
@@ -546,7 +659,7 @@ function destacarZona(z, modo) {
     for (let i = 0; i < explo.pecas.length; i++) { const p = explo.pecas[i]; p.peca.position.set(p.base[0] + p.off[0] * s, p.base[1] + p.off[1] * s, p.base[2] + p.off[2] * s); }
     renderizar();
   });
-  explo.pulso = numero(0.12, 0.32, { duration: 1.4, repeat: 2, repeatType: 'reverse', ease: 'easeInOut' }, (v) => { for (let i = 0; i < explo.pecas.length; i++) { const mt = explo.pecas[i].peca.material; if (mt.emissive) mt.emissiveIntensity = v; } renderizar(); });
+  explo.pulso = numero(0.45, 0.8, { duration: 1.4, repeat: 2, repeatType: 'reverse', ease: 'easeInOut' }, (v) => { for (let i = 0; i < explo.pecas.length; i++) { const mt = explo.pecas[i].peca.material; if (mt.emissive) mt.emissiveIntensity = v; } renderizar(); });
   const et = mv.querySelector('.c3d-etq');
   if (et) {
     et.querySelector('b').textContent = LABEL_ZONA[z] || ZONAS[z].nome;
