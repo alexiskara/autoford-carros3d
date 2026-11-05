@@ -1,0 +1,291 @@
+{
+  "cars": [
+    {
+      "id": "fiat-strada",
+      "brand": "Fiat",
+      "model": "Strada",
+      "category": "pickup",
+      "file": "fiat-strada.glb",
+      "bytes": 1272140,
+      "paint": {
+        "materials": [],
+        "confidence": "sem"
+      },
+      "credit": {
+        "author": "Hortamat",
+        "authorUrl": "https://sketchfab.com/Hortamat",
+        "license": "CC Attribution",
+        "sourceName": "Fiat Strada Silver Pickup",
+        "sourceUrl": "https://sketchfab.com/3d-models/fiat-strada-silver-pickup-7b3fe57b295f4a579f46dc4303b98305"
+      }
+    },
+    {
+      "id": "hyundai-hb20",
+      "brand": "Hyundai",
+      "model": "HB20",
+      "category": "hatch",
+      "file": "hyundai-hb20.glb",
+      "bytes": 1556168,
+      "paint": {
+        "materials": [],
+        "confidence": "sem"
+      },
+      "credit": {
+        "author": "teenlin3",
+        "authorUrl": "https://sketchfab.com/teenlin3",
+        "license": "CC Attribution",
+        "sourceName": "Hyundai Hb20 2025",
+        "sourceUrl": "https://sketchfab.com/3d-models/hyundai-hb20-2025-bad2259ddef245d78e5e6052be3fb63b"
+      }
+    },
+    {
+      "id": "byd-dolphin-mini",
+      "brand": "BYD",
+      "model": "Dolphin Mini",
+      "category": "hatch",
+      "file": "byd-dolphin-mini.glb",
+      "bytes": 3961512,
+      "paint": {
+        "materials": [],
+        "confidence": "sem"
+      },
+      "credit": {
+        "author": "tonielpro520",
+        "authorUrl": "https://sketchfab.com/tonielpro520",
+        "license": "CC Attribution",
+        "sourceName": "2024 BYD Dolphin Mini",
+        "sourceUrl": "https://sketchfab.com/3d-models/2024-byd-dolphin-mini-c4a97baaadda487faa7ed90ecd1b057d"
+      }
+    },
+    {
+      "id": "fiat-argo",
+      "brand": "Fiat",
+      "model": "Argo",
+      "category": "hatch",
+      "file": "fiat-argo.glb",
+      "bytes": 1135804,
+      "paint": {
+        "materials": [
+          "Lataria_sdr"
+        ],
+        "confidence": "alta"
+      },
+      "credit": {
+        "author": "wjmatos",
+        "authorUrl": "https://sketchfab.com/wjmatos",
+        "license": "CC Attribution",
+        "sourceName": "FIAT Argo",
+        "sourceUrl": "https://sketchfab.com/3d-models/fiat-argo-5fd176af97884d1eabdce909f9a854ed"
+      }
+    },
+    {
+      "id": "volkswagen-t-cross",
+      "brand": "Volkswagen",
+      "model": "T-Cross",
+      "category": "suv",
+      "file": "volkswagen-t-cross.glb",
+      "bytes": 1337260,
+      "paint": {
+        "materials": [],
+        "confidence": "sem"
+      },
+      "credit": {
+        "author": "Levi",
+        "authorUrl": "https://sketchfab.com/Levi3DModels",
+        "license": "CC Attribution",
+        "sourceName": "Volkswagen T-Cross TSI LEGEND 2026",
+        "sourceUrl": "https://sketchfab.com/3d-models/volkswagen-t-cross-tsi-legend-2026-d8417fa18b184b2d81174f81dfe131c6"
+      }
+    },
+    {
+      "id": "chevrolet-onix",
+      "brand": "Chevrolet",
+      "model": "Onix",
+      "category": "hatch",
+      "file": "chevrolet-onix.glb",
+      "bytes": 722372,
+      "paint": {
+        "materials": [],
+        "confidence": "sem"
+      },
+      "credit": {
+        "author": "UZBEK 3D",
+        "authorUrl": "https://sketchfab.com/Uzbek3D",
+        "license": "CC Attribution",
+        "sourceName": "Chevrolet Onix 2024",
+        "sourceUrl": "https://sketchfab.com/3d-models/chevrolet-onix-2024-bcc8987606db4088b039e55fe70fa379"
+      }
+    },
+    {
+      "id": "toyota-yaris-cross",
+      "brand": "Toyota",
+      "model": "Yaris Cross",
+      "category": "suv",
+      "file": "toyota-yaris-cross.glb",
+      "bytes": 1685564,
+      "paint": {
+        "materials": [],
+        "confidence": "sem"
+      },
+      "credit": {
+        "author": "teenlin3",
+        "authorUrl": "https://sketchfab.com/teenlin3",
+        "license": "CC Attribution",
+        "sourceName": "Toyota Yaris Cross 2025",
+        "sourceUrl": "https://sketchfab.com/3d-models/toyota-yaris-cross-2025-72699c7998224d44a5e136b8307cd328"
+      }
+    },
+    {
+      "id": "hyundai-creta",
+      "brand": "Hyundai",
+      "model": "Creta",
+      "category": "suv",
+      "file": "hyundai-creta.glb",
+      "bytes": 1127188,
+      "paint": {
+        "materials": [],
+        "confidence": "sem"
+      },
+      "credit": {
+        "author": "Nieve5677",
+        "authorUrl": "https://sketchfab.com/niev",
+        "license": "CC Attribution",
+        "sourceName": "Hyundai Creta",
+        "sourceUrl": "https://sketchfab.com/3d-models/hyundai-creta-f03d934f58064882ba3dd2d732519410"
+      }
+    },
+    {
+      "id": "gwm-haval-h6",
+      "brand": "GWM",
+      "model": "Haval H6",
+      "category": "suv",
+      "file": "gwm-haval-h6.glb",
+      "bytes": 1544560,
+      "paint": {
+        "materials": [],
+        "confidence": "sem"
+      },
+      "credit": {
+        "author": "GARAGISTA",
+        "authorUrl": "https://sketchfab.com/vinishows-1753d1",
+        "license": "CC Attribution",
+        "sourceName": "HAVAL H6 HEV 2024",
+        "sourceUrl": "https://sketchfab.com/3d-models/haval-h6-hev-2024-5f4841ba0ea344b0b78f1938c6f3dd37"
+      }
+    },
+    {
+      "id": "fiat-toro",
+      "brand": "Fiat",
+      "model": "Toro",
+      "category": "pickup",
+      "file": "fiat-toro.glb",
+      "bytes": 706436,
+      "paint": {
+        "materials": [],
+        "confidence": "sem"
+      },
+      "credit": {
+        "author": "FreshCanidae1571",
+        "authorUrl": "https://sketchfab.com/FreshCanidae1571",
+        "license": "CC Attribution",
+        "sourceName": "Fiat_toro",
+        "sourceUrl": "https://sketchfab.com/3d-models/fiat-toro-824ea9935afc44d0bbf23b911b4dc6f9"
+      }
+    },
+    {
+      "id": "honda-hr-v",
+      "brand": "Honda",
+      "model": "HR-V",
+      "category": "suv",
+      "file": "honda-hr-v.glb",
+      "bytes": 7359740,
+      "paint": {
+        "materials": [],
+        "confidence": "sem"
+      },
+      "credit": {
+        "author": "tonielpro520",
+        "authorUrl": "https://sketchfab.com/tonielpro520",
+        "license": "CC Attribution",
+        "sourceName": "2022 Honda HR-V e:Hev",
+        "sourceUrl": "https://sketchfab.com/3d-models/2022-honda-hr-v-ehev-e9128a46adc34e5e995ab7e8ad36339c"
+      }
+    },
+    {
+      "id": "toyota-hilux",
+      "brand": "Toyota",
+      "model": "Hilux",
+      "category": "pickup",
+      "file": "toyota-hilux.glb",
+      "bytes": 3377172,
+      "paint": {
+        "materials": [],
+        "confidence": "sem"
+      },
+      "credit": {
+        "author": "BHP3D",
+        "authorUrl": "https://sketchfab.com/BHP3D",
+        "license": "CC Attribution",
+        "sourceName": "2022 Toyota Hilux",
+        "sourceUrl": "https://sketchfab.com/3d-models/2022-toyota-hilux-82bd37c5065040098fb0b86e07fcb959"
+      }
+    },
+    {
+      "id": "jeep-compass",
+      "brand": "Jeep",
+      "model": "Compass",
+      "category": "suv",
+      "file": "jeep-compass.glb",
+      "bytes": 1276996,
+      "paint": {
+        "materials": [],
+        "confidence": "sem"
+      },
+      "credit": {
+        "author": "Nieve5677",
+        "authorUrl": "https://sketchfab.com/niev",
+        "license": "CC Attribution",
+        "sourceName": "Jeep Compass Limited 2022",
+        "sourceUrl": "https://sketchfab.com/3d-models/jeep-compass-limited-2022-6bafa70ee29243ab8205cb54b109a9fe"
+      }
+    },
+    {
+      "id": "volkswagen-saveiro",
+      "brand": "Volkswagen",
+      "model": "Saveiro",
+      "category": "pickup",
+      "file": "volkswagen-saveiro.glb",
+      "bytes": 4333848,
+      "paint": {
+        "materials": [],
+        "confidence": "sem"
+      },
+      "credit": {
+        "author": "Mona x Supercars",
+        "authorUrl": "https://sketchfab.com/Car2022",
+        "license": "CC Attribution",
+        "sourceName": "Volkswagen Saveiro",
+        "sourceUrl": "https://sketchfab.com/3d-models/volkswagen-saveiro-2830cd9a0fab4d7db1102ca5b3d96580"
+      }
+    }
+  ],
+  "name": "Autoford — modelos 3D",
+  "count": 14,
+  "totalBytes": 31396760,
+  "brands": [
+    "BYD",
+    "Chevrolet",
+    "Fiat",
+    "GWM",
+    "Honda",
+    "Hyundai",
+    "Jeep",
+    "Toyota",
+    "Volkswagen"
+  ],
+  "categories": [
+    "hatch",
+    "pickup",
+    "suv"
+  ]
+}
