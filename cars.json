@@ -51,9 +51,9 @@
       "bytes": 3963004,
       "paint": {
         "materials": [
-          "Carro_Interno"
+          "Carro_Pintura"
         ],
-        "confidence": "baixa"
+        "confidence": "alta"
       },
       "credit": {
         "author": "tonielpro520",
@@ -114,9 +114,10 @@
       "bytes": 722372,
       "paint": {
         "materials": [
-          "ID74"
+          "ID74",
+          "ID74_0"
         ],
-        "confidence": "baixa"
+        "confidence": "alta"
       },
       "credit": {
         "author": "UZBEK 3D",
@@ -134,10 +135,8 @@
       "file": "toyota-yaris-cross.glb",
       "bytes": 1685564,
       "paint": {
-        "materials": [
-          "Material"
-        ],
-        "confidence": "baixa"
+        "materials": [],
+        "confidence": "sem"
       },
       "credit": {
         "author": "teenlin3",
@@ -177,9 +176,12 @@
       "bytes": 1591304,
       "paint": {
         "materials": [
-          "mat5"
+          "mat1",
+          "mat3",
+          "mat12",
+          "mat20"
         ],
-        "confidence": "baixa"
+        "confidence": "alta"
       },
       "credit": {
         "author": "GARAGISTA",
@@ -198,9 +200,10 @@
       "bytes": 712280,
       "paint": {
         "materials": [
-          "racks.005"
+          "door_rf_ok.002",
+          "primary.002"
         ],
-        "confidence": "baixa"
+        "confidence": "alta"
       },
       "credit": {
         "author": "FreshCanidae1571",
@@ -240,9 +243,10 @@
       "bytes": 3377172,
       "paint": {
         "materials": [
-          "hilux_mb05.12"
+          "primary",
+          "hilux_mb01.7"
         ],
-        "confidence": "baixa"
+        "confidence": "alta"
       },
       "credit": {
         "author": "BHP3D",
@@ -263,7 +267,7 @@
         "materials": [
           "00_-_BODY"
         ],
-        "confidence": "baixa"
+        "confidence": "alta"
       },
       "credit": {
         "author": "fazt.3ds",
@@ -281,10 +285,8 @@
       "file": "volkswagen-saveiro.glb",
       "bytes": 4293712,
       "paint": {
-        "materials": [
-          "material"
-        ],
-        "confidence": "baixa"
+        "materials": [],
+        "confidence": "sem"
       },
       "credit": {
         "author": "Mona x Supercars",
@@ -324,7 +326,7 @@
       "bytes": 5772068,
       "paint": {
         "materials": [
-          "M_2023_Volkswagen_Polo_GTI_Carpaint_Simple_Onyx21"
+          "M_2023_Volkswagen_Polo_GTI_12125659012"
         ],
         "confidence": "alta"
       },
