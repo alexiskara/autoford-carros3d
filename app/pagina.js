@@ -304,10 +304,6 @@ function desfazerExplosao() {
   if (tinha) { try { mv.cameraTarget = 'auto auto auto'; } catch (e) {} renderizar(); }
 }
 const PELE = {
-  'capo': { eixo: 'y', tol: 0.04, b: { u: [0.2, 0.72], v: [0.42, 1.1], aw: [0, 0.72] }, normal: (nu, ny) => ny > 0.72 },
-  'teto': { eixo: 'y', tol: 0.04, b: { u: [-0.62, 0.3], v: [0.76, 1.1], aw: [0, 0.84] }, normal: (nu, ny) => ny > 0.75 },
-  'parabrisa': { eixo: 'y', tol: 0.05, b: { u: [0.02, 0.48], v: [0.52, 1.1], aw: [0, 0.82] }, normal: (nu, ny) => ny > 0.1 && ny < 0.8 && nu > 0.15 },
-  'portamalas': { eixo: 'y', tol: 0.04, b: { u: [-0.8, -0.26], v: [0.44, 1.1], aw: [0, 0.78] }, normal: (nu, ny) => ny > 0.65 || nu < -0.5 },
   'portas': { eixo: 'w', tol: 0.04, b: { u: [-0.32, 0.28], v: [0.4, 0.78], aw: [0.5, 1.3] }, normal: (nu, ny, nw, lado) => nw * lado > 0.7 },
   'parachoque-d': { eixo: 'u', sinal: 1, tol: 0.04, b: { u: [0.72, 1.3], v: [-0.1, 0.5], aw: [0, 1.3] }, normal: (nu) => nu > 0.2 },
   'parachoque-t': { eixo: 'u', sinal: -1, tol: 0.04, b: { u: [-1.3, -0.72], v: [-0.1, 0.5], aw: [0, 1.3] }, normal: (nu) => nu < -0.2 },
