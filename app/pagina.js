@@ -525,14 +525,14 @@ function destacarZona(z, modo) {
     geo.setIndex(gr.indices);
     const peca = m.clone(false); peca.geometry = geo; peca.material = m.material.clone(); peca.material.side = 2; peca.userData = { c3dPeca: true };
     let un = null; if (gr.clip && PELE[z]) { const bb = limitesMundo(PELE[z], gr.lado); const me = m.matrixWorld.elements; un = cortar(peca.material, bb[0], bb[1], [me[12], me[13], me[14]]); }
-    if (peca.material.emissive) { peca.material.emissive.setRGB(0.25, 0.5, 1); peca.material.emissiveIntensity = 0.14; }
+    const pm = peca.material; if (pm.color) pm.color.setRGB(0.85, 0.2, 0.0); pm.map = null; if ('metalness' in pm) { pm.metalness = 0; pm.roughness = 0.6; } pm.transparent = false; pm.opacity = 1; if (pm.emissive) { pm.emissive.setRGB(1, 0.22, 0.0); pm.emissiveIntensity = 0.12; } pm.polygonOffset = true; pm.polygonOffsetFactor = -1; pm.polygonOffsetUnits = -1;
     m.parent.add(peca);
-    const ox = ex ? sg * e.u * L : gr.lado * e.w * W, oy = e.v * H, oz = ex ? gr.lado * e.w * W : sg * e.u * L;
+    const ox = 0, oy = 0, oz = 0; /* sem deslocamento: a peca so fica laranja no lugar */
     const inv = m.parent.matrixWorld.clone().invert().elements;
     const lx = inv[0] * ox + inv[4] * oy + inv[8] * oz, ly = inv[1] * ox + inv[5] * oy + inv[9] * oz, lz = inv[2] * ox + inv[6] * oy + inv[10] * oz;
     explo.pecas.push({ peca, base: [peca.position.x, peca.position.y, peca.position.z], off: [lx, ly, lz], offW: [ox, oy, oz], un });
   });
-  explo.offMundo = [ex ? sg * e.u * L : 0, e.v * H, ex ? 0 : sg * e.u * L];
+  explo.offMundo = [0, 0, 0];
   lista.forEach((m) => { const mats = Array.isArray(m.material) ? m.material : [m.material]; mats.forEach((mt) => { if (!explo.mats.has(mt)) { explo.mats.set(mt, { transparent: mt.transparent, opacity: mt.opacity, depthWrite: mt.depthWrite }); mt.transparent = true; mt.opacity = Math.min(mt.opacity, 0.14); mt.depthWrite = false; mt.needsUpdate = true; } }); });
   explo.ativa = true; explo.zona = z;
   const cM = mv.getBoundingBoxCenter(), dM = mv.getDimensions();
@@ -546,7 +546,7 @@ function destacarZona(z, modo) {
     for (let i = 0; i < explo.pecas.length; i++) { const p = explo.pecas[i]; p.peca.position.set(p.base[0] + p.off[0] * s, p.base[1] + p.off[1] * s, p.base[2] + p.off[2] * s); }
     renderizar();
   });
-  explo.pulso = numero(0.14, 0.34, { duration: 1.4, repeat: 2, repeatType: 'reverse', ease: 'easeInOut' }, (v) => { for (let i = 0; i < explo.pecas.length; i++) { const mt = explo.pecas[i].peca.material; if (mt.emissive) mt.emissiveIntensity = v; } renderizar(); });
+  explo.pulso = numero(0.12, 0.32, { duration: 1.4, repeat: 2, repeatType: 'reverse', ease: 'easeInOut' }, (v) => { for (let i = 0; i < explo.pecas.length; i++) { const mt = explo.pecas[i].peca.material; if (mt.emissive) mt.emissiveIntensity = v; } renderizar(); });
   const et = mv.querySelector('.c3d-etq');
   if (et) {
     et.querySelector('b').textContent = LABEL_ZONA[z] || ZONAS[z].nome;
@@ -563,7 +563,7 @@ function etiquetaEntra(et) {
 function pararRotacao() { mv.removeAttribute('auto-rotate'); $('c3d-gira').setAttribute('aria-pressed', 'false'); }
 function focarZona(z) {
   pararRotacao();
-  const Z = ZONAS[z]; mv.cameraOrbit = vista(Z.cam[0], Z.cam[1], EXPL[z] ? Math.round(Z.cam[2] * 1.5) : Z.cam[2]);
+  const Z = ZONAS[z]; mv.cameraOrbit = vista(Z.cam[0], Z.cam[1], Z.cam[2]);
   if (!EXPL[z]) { desfazerExplosao(); return; }
   setTimeout(() => { try { destacarZona(z); } catch (er) { desfazerExplosao(); } }, 60);
 }
