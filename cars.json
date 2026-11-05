@@ -59,7 +59,7 @@
       "model": "Dolphin Mini",
       "category": "hatch",
       "file": "byd-dolphin-mini.glb",
-      "bytes": 3963004,
+      "bytes": 380696,
       "paint": {
         "materials": [
           "Carro_Pintura"
@@ -238,7 +238,7 @@
       "model": "HR-V",
       "category": "suv",
       "file": "honda-hr-v.glb",
-      "bytes": 7373480,
+      "bytes": 998288,
       "paint": {
         "materials": [
           "M_2022_Honda_HR_V_eHEV_Platinum_White_Pearl"
@@ -260,7 +260,7 @@
       "model": "Hilux",
       "category": "pickup",
       "file": "toyota-hilux.glb",
-      "bytes": 3377172,
+      "bytes": 2108888,
       "paint": {
         "materials": [
           "primary",
@@ -283,7 +283,7 @@
       "model": "Compass",
       "category": "suv",
       "file": "jeep-compass.glb",
-      "bytes": 6331864,
+      "bytes": 2205044,
       "paint": {
         "materials": [
           "00_-_BODY"
@@ -305,7 +305,7 @@
       "model": "Saveiro",
       "category": "pickup",
       "file": "volkswagen-saveiro.glb",
-      "bytes": 4293712,
+      "bytes": 4069100,
       "paint": {
         "materials": [],
         "confidence": "sem"
@@ -325,7 +325,7 @@
       "model": "Tracker",
       "category": "suv",
       "file": "chevrolet-tracker.glb",
-      "bytes": 9539600,
+      "bytes": 1824484,
       "paint": {
         "materials": [
           "CarPaint"
@@ -347,7 +347,7 @@
       "model": "Polo",
       "category": "hatch",
       "file": "volkswagen-polo.glb",
-      "bytes": 5772068,
+      "bytes": 713584,
       "paint": {
         "materials": [
           "M_2023_Volkswagen_Polo_GTI_12125659012"
@@ -366,7 +366,7 @@
   ],
   "name": "Autoford — modelos 3D",
   "count": 16,
-  "totalBytes": 51512316,
+  "totalBytes": 23161500,
   "brands": [
     "BYD",
     "Chevrolet",
