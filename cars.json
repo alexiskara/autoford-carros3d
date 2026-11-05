@@ -6,19 +6,19 @@
       "model": "Strada",
       "category": "pickup",
       "file": "fiat-strada.glb",
-      "bytes": 212680,
+      "bytes": 1272140,
       "paint": {
         "materials": [
-          "Scene_-_Root"
+          "material_0"
         ],
         "confidence": "baixa"
       },
       "credit": {
-        "author": "grupogreen",
-        "authorUrl": "https://sketchfab.com/grupogreen",
+        "author": "Hortamat",
+        "authorUrl": "https://sketchfab.com/Hortamat",
         "license": "CC Attribution",
-        "sourceName": "Fiat+strada+picape+pickup+carro+miniatura+",
-        "sourceUrl": "https://sketchfab.com/3d-models/fiatstradapicapepickupcarrominiatura-b314340548b14980bf7dfe17ed7353ec"
+        "sourceName": "Fiat Strada Silver Pickup",
+        "sourceUrl": "https://sketchfab.com/3d-models/fiat-strada-silver-pickup-7b3fe57b295f4a579f46dc4303b98305"
       },
       "frente": "-x"
     },
@@ -357,7 +357,7 @@
   ],
   "name": "Autoford — modelos 3D",
   "count": 16,
-  "totalBytes": 50452856,
+  "totalBytes": 51512316,
   "brands": [
     "BYD",
     "Chevrolet",
