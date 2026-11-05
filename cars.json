@@ -6,17 +6,19 @@
       "model": "Strada",
       "category": "pickup",
       "file": "fiat-strada.glb",
-      "bytes": 1272140,
+      "bytes": 212680,
       "paint": {
-        "materials": [],
-        "confidence": "sem"
+        "materials": [
+          "Scene_-_Root"
+        ],
+        "confidence": "baixa"
       },
       "credit": {
-        "author": "Hortamat",
-        "authorUrl": "https://sketchfab.com/Hortamat",
+        "author": "grupogreen",
+        "authorUrl": "https://sketchfab.com/grupogreen",
         "license": "CC Attribution",
-        "sourceName": "Fiat Strada Silver Pickup",
-        "sourceUrl": "https://sketchfab.com/3d-models/fiat-strada-silver-pickup-7b3fe57b295f4a579f46dc4303b98305"
+        "sourceName": "Fiat+strada+picape+pickup+carro+miniatura+",
+        "sourceUrl": "https://sketchfab.com/3d-models/fiatstradapicapepickupcarrominiatura-b314340548b14980bf7dfe17ed7353ec"
       }
     },
     {
@@ -27,8 +29,10 @@
       "file": "hyundai-hb20.glb",
       "bytes": 1556168,
       "paint": {
-        "materials": [],
-        "confidence": "sem"
+        "materials": [
+          "Material"
+        ],
+        "confidence": "baixa"
       },
       "credit": {
         "author": "teenlin3",
@@ -44,10 +48,12 @@
       "model": "Dolphin Mini",
       "category": "hatch",
       "file": "byd-dolphin-mini.glb",
-      "bytes": 3961512,
+      "bytes": 3963004,
       "paint": {
-        "materials": [],
-        "confidence": "sem"
+        "materials": [
+          "Carro_Interno"
+        ],
+        "confidence": "baixa"
       },
       "credit": {
         "author": "tonielpro520",
@@ -63,7 +69,7 @@
       "model": "Argo",
       "category": "hatch",
       "file": "fiat-argo.glb",
-      "bytes": 1135804,
+      "bytes": 1132396,
       "paint": {
         "materials": [
           "Lataria_sdr"
@@ -84,10 +90,12 @@
       "model": "T-Cross",
       "category": "suv",
       "file": "volkswagen-t-cross.glb",
-      "bytes": 1337260,
+      "bytes": 1359916,
       "paint": {
-        "materials": [],
-        "confidence": "sem"
+        "materials": [
+          "carpaint"
+        ],
+        "confidence": "alta"
       },
       "credit": {
         "author": "Levi",
@@ -105,8 +113,10 @@
       "file": "chevrolet-onix.glb",
       "bytes": 722372,
       "paint": {
-        "materials": [],
-        "confidence": "sem"
+        "materials": [
+          "ID74"
+        ],
+        "confidence": "baixa"
       },
       "credit": {
         "author": "UZBEK 3D",
@@ -124,8 +134,10 @@
       "file": "toyota-yaris-cross.glb",
       "bytes": 1685564,
       "paint": {
-        "materials": [],
-        "confidence": "sem"
+        "materials": [
+          "Material"
+        ],
+        "confidence": "baixa"
       },
       "credit": {
         "author": "teenlin3",
@@ -141,17 +153,19 @@
       "model": "Creta",
       "category": "suv",
       "file": "hyundai-creta.glb",
-      "bytes": 1127188,
+      "bytes": 829276,
       "paint": {
-        "materials": [],
-        "confidence": "sem"
+        "materials": [
+          "carpaint.004"
+        ],
+        "confidence": "alta"
       },
       "credit": {
-        "author": "Nieve5677",
-        "authorUrl": "https://sketchfab.com/niev",
+        "author": "MattDoesBlender",
+        "authorUrl": "https://sketchfab.com/MattDoesBlender",
         "license": "CC Attribution",
         "sourceName": "Hyundai Creta",
-        "sourceUrl": "https://sketchfab.com/3d-models/hyundai-creta-f03d934f58064882ba3dd2d732519410"
+        "sourceUrl": "https://sketchfab.com/3d-models/hyundai-creta-67645b6f549441a786e2b4050dc0268b"
       }
     },
     {
@@ -160,10 +174,12 @@
       "model": "Haval H6",
       "category": "suv",
       "file": "gwm-haval-h6.glb",
-      "bytes": 1544560,
+      "bytes": 1591304,
       "paint": {
-        "materials": [],
-        "confidence": "sem"
+        "materials": [
+          "mat5"
+        ],
+        "confidence": "baixa"
       },
       "credit": {
         "author": "GARAGISTA",
@@ -179,10 +195,12 @@
       "model": "Toro",
       "category": "pickup",
       "file": "fiat-toro.glb",
-      "bytes": 706436,
+      "bytes": 712280,
       "paint": {
-        "materials": [],
-        "confidence": "sem"
+        "materials": [
+          "racks.005"
+        ],
+        "confidence": "baixa"
       },
       "credit": {
         "author": "FreshCanidae1571",
@@ -198,10 +216,12 @@
       "model": "HR-V",
       "category": "suv",
       "file": "honda-hr-v.glb",
-      "bytes": 7359740,
+      "bytes": 7373480,
       "paint": {
-        "materials": [],
-        "confidence": "sem"
+        "materials": [
+          "M_2022_Honda_HR_V_eHEV_Platinum_White_Pearl"
+        ],
+        "confidence": "baixa"
       },
       "credit": {
         "author": "tonielpro520",
@@ -219,8 +239,10 @@
       "file": "toyota-hilux.glb",
       "bytes": 3377172,
       "paint": {
-        "materials": [],
-        "confidence": "sem"
+        "materials": [
+          "hilux_mb05.12"
+        ],
+        "confidence": "baixa"
       },
       "credit": {
         "author": "BHP3D",
@@ -236,17 +258,19 @@
       "model": "Compass",
       "category": "suv",
       "file": "jeep-compass.glb",
-      "bytes": 1276996,
+      "bytes": 6331864,
       "paint": {
-        "materials": [],
-        "confidence": "sem"
+        "materials": [
+          "00_-_BODY"
+        ],
+        "confidence": "baixa"
       },
       "credit": {
-        "author": "Nieve5677",
-        "authorUrl": "https://sketchfab.com/niev",
+        "author": "fazt.3ds",
+        "authorUrl": "https://sketchfab.com/fazt.3ds",
         "license": "CC Attribution",
-        "sourceName": "Jeep Compass Limited 2022",
-        "sourceUrl": "https://sketchfab.com/3d-models/jeep-compass-limited-2022-6bafa70ee29243ab8205cb54b109a9fe"
+        "sourceName": "JEEP COMPASS 2021",
+        "sourceUrl": "https://sketchfab.com/3d-models/jeep-compass-2021-7181289a07794a6ead28ffd56bfbbc1d"
       }
     },
     {
@@ -255,10 +279,12 @@
       "model": "Saveiro",
       "category": "pickup",
       "file": "volkswagen-saveiro.glb",
-      "bytes": 4333848,
+      "bytes": 4293712,
       "paint": {
-        "materials": [],
-        "confidence": "sem"
+        "materials": [
+          "material"
+        ],
+        "confidence": "baixa"
       },
       "credit": {
         "author": "Mona x Supercars",
@@ -267,11 +293,53 @@
         "sourceName": "Volkswagen Saveiro",
         "sourceUrl": "https://sketchfab.com/3d-models/volkswagen-saveiro-2830cd9a0fab4d7db1102ca5b3d96580"
       }
+    },
+    {
+      "id": "chevrolet-tracker",
+      "brand": "Chevrolet",
+      "model": "Tracker",
+      "category": "suv",
+      "file": "chevrolet-tracker.glb",
+      "bytes": 9539600,
+      "paint": {
+        "materials": [
+          "CarPaint"
+        ],
+        "confidence": "alta"
+      },
+      "credit": {
+        "author": "GARAGISTA",
+        "authorUrl": "https://sketchfab.com/vinishows-1753d1",
+        "license": "CC Attribution",
+        "sourceName": "chevrolet tracker 2026",
+        "sourceUrl": "https://sketchfab.com/3d-models/chevrolet-tracker-2026-fde63e1467a64c688f7072230dfa22c3"
+      }
+    },
+    {
+      "id": "volkswagen-polo",
+      "brand": "Volkswagen",
+      "model": "Polo",
+      "category": "hatch",
+      "file": "volkswagen-polo.glb",
+      "bytes": 5772068,
+      "paint": {
+        "materials": [
+          "M_2023_Volkswagen_Polo_GTI_Carpaint_Simple_Onyx21"
+        ],
+        "confidence": "alta"
+      },
+      "credit": {
+        "author": "tonielpro520",
+        "authorUrl": "https://sketchfab.com/tonielpro520",
+        "license": "CC Attribution",
+        "sourceName": "2023 Volkswagen Polo GTI",
+        "sourceUrl": "https://sketchfab.com/3d-models/2023-volkswagen-polo-gti-42af1df85fea476e8f74ee2930fcfa29"
+      }
     }
   ],
   "name": "Autoford — modelos 3D",
-  "count": 14,
-  "totalBytes": 31396760,
+  "count": 16,
+  "totalBytes": 50452856,
   "brands": [
     "BYD",
     "Chevrolet",
