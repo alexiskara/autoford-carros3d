@@ -303,6 +303,56 @@ function desfazerExplosao() {
   const et = mv.querySelector('.c3d-etq'); if (et) et.hidden = true;
   if (tinha) { try { mv.cameraTarget = 'auto auto auto'; } catch (e) {} renderizar(); }
 }
+const PELE = {
+  'capo': { eixo: 'y', tol: 0.04, b: { u: [0.2, 0.72], v: [0.42, 1.1], aw: [0, 0.72] }, normal: (nu, ny) => ny > 0.72 },
+  'teto': { eixo: 'y', tol: 0.04, b: { u: [-0.62, 0.3], v: [0.76, 1.1], aw: [0, 0.84] }, normal: (nu, ny) => ny > 0.75 },
+  'parabrisa': { eixo: 'y', tol: 0.05, b: { u: [0.02, 0.48], v: [0.52, 1.1], aw: [0, 0.82] }, normal: (nu, ny) => ny > 0.1 && ny < 0.8 && nu > 0.15 },
+  'portamalas': { eixo: 'y', tol: 0.04, b: { u: [-0.8, -0.26], v: [0.44, 1.1], aw: [0, 0.78] }, normal: (nu, ny) => ny > 0.65 || nu < -0.5 },
+  'portas': { eixo: 'w', tol: 0.04, b: { u: [-0.32, 0.28], v: [0.4, 0.78], aw: [0.5, 1.3] }, normal: (nu, ny, nw, lado) => nw * lado > 0.7 },
+  'parachoque-d': { eixo: 'u', sinal: 1, tol: 0.04, b: { u: [0.72, 1.3], v: [-0.1, 0.5], aw: [0, 1.3] }, normal: (nu) => nu > 0.2 },
+  'parachoque-t': { eixo: 'u', sinal: -1, tol: 0.04, b: { u: [-1.3, -0.72], v: [-0.1, 0.5], aw: [0, 1.3] }, normal: (nu) => nu < -0.2 },
+  'farol': { eixo: 'u', sinal: 1, tol: 0.04, b: { u: [0.72, 1.3], v: [0.4, 0.74], aw: [0.3, 1.3] }, normal: (nu) => nu > 0.2 },
+  'lanterna': { eixo: 'u', sinal: -1, tol: 0.04, b: { u: [-1.3, -0.72], v: [0.4, 0.78], aw: [0.3, 1.3] }, normal: (nu) => nu < -0.2 }
+};
+function emBox(b, q, mg) { const aw = Math.abs(q[2]); return q[0] > b.u[0] - mg && q[0] < b.u[1] + mg && q[1] > b.v[0] - mg && q[1] < b.v[1] + mg && aw > b.aw[0] - mg && aw < b.aw[1] + mg; }
+function cortar(mat, mn3, mx3, base3) {
+  const un = { uMn: { value: mn3 }, uMx: { value: mx3 }, uBase: { value: base3 } };
+  mat.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, un);
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vC3d;\nuniform vec3 uBase;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvC3d = (modelMatrix * vec4(transformed, 1.0)).xyz - (modelMatrix[3].xyz - uBase);');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vC3d;\nuniform vec3 uMn;\nuniform vec3 uMx;').replace('void main() {', 'void main() {\nvec3 pc = vC3d;\nif (pc.x < uMn.x || pc.y < uMn.y || pc.z < uMn.z || pc.x > uMx.x || pc.y > uMx.y || pc.z > uMx.z) discard;');
+  };
+  mat.customProgramCacheKey = () => 'c3dcorte'; mat.needsUpdate = true;
+  return un;
+}
+function vizinhosTri(idx, nTri, id) {
+  const viz = new Int32Array(nTri * 3).fill(-1), mapa = new Map(), nV = id.length;
+  for (let t = 0; t < nTri; t++) for (let j = 0; j < 3; j++) {
+    const a = id[idx ? idx[t * 3 + j] : t * 3 + j], b = id[idx ? idx[t * 3 + (j + 1) % 3] : t * 3 + (j + 1) % 3];
+    const k = a < b ? a * nV + b : b * nV + a, o = mapa.get(k);
+    if (o === undefined) mapa.set(k, t * 3 + j); else { viz[t * 3 + j] = (o / 3) | 0; viz[o] = t; mapa.delete(k); }
+  }
+  return viz;
+}
+function dilatar(a, viz, limite, nTri) {
+  const b = a.slice();
+  for (let t = 0; t < nTri; t++) { if (a[t] || !limite[t]) continue; for (let k = 0; k < 3; k++) { const o = viz[t * 3 + k]; if (o >= 0 && a[o]) { b[t] = 1; break; } } }
+  return b;
+}
+function erodir(a, viz, nTri) {
+  const b = a.slice();
+  for (let t = 0; t < nTri; t++) { if (!a[t]) continue; for (let k = 0; k < 3; k++) { const o = viz[t * 3 + k]; if (o >= 0 && !a[o]) { b[t] = 0; break; } } }
+  return b;
+}
+function limparBorda(sel, viz, permitido, nTri) {
+  let s = sel;
+  for (let i = 0; i < 2; i++) s = dilatar(s, viz, permitido, nTri);
+  for (let i = 0; i < 2; i++) s = erodir(s, viz, nTri);
+  const fechado = s;
+  for (let i = 0; i < 2; i++) s = erodir(s, viz, nTri);
+  for (let i = 0; i < 2; i++) s = dilatar(s, viz, fechado, nTri);
+  return s;
+}
 function soldar(w) {
   const n = w.length / 3, id = new Int32Array(n), mapa = new Map();
   for (let i = 0; i < n; i++) { const k = Math.round(w[i * 3] * 10000) + '|' + Math.round(w[i * 3 + 1] * 10000) + '|' + Math.round(w[i * 3 + 2] * 10000); let r = mapa.get(k); if (r === undefined) { r = i; mapa.set(k, i); } id[i] = r; }
@@ -393,6 +443,38 @@ function destacarZona(z, modo) {
         let l = escolhidos.get(chave); if (!l) { l = { lado, tris: [] }; escolhidos.set(chave, l); }
         for (let q = 0; q < tris.length; q++) l.tris.push(tris[q]);
       });
+    } else if (PELE[z] && modo !== 'caixa') {
+      const cfg = PELE[z], G = 56, cel = (a) => Math.min(G - 1, Math.max(0, Math.floor((a + 1) / 2 * G)));
+      const ok = new Uint8Array(nTri), CEL = new Int32Array(nTri), VAL = new Float32Array(nTri), NU = new Float32Array(nTri), NY = new Float32Array(nTri), NW = new Float32Array(nTri), LA = new Int8Array(nTri);
+      const grade = new Float32Array(2 * G * G).fill(-1e9);
+      for (let tt = 0; tt < nTri; tt++) {
+        const inf = infoTri(w, idx, tt); if (!inf) continue; const q = quadro(inf[0], inf[1], inf[2]);
+        if (!emBox(cfg.b, q, 0.12)) continue;
+        const nu0 = sg * (ex ? inf[3] : inf[5]), ny0 = inf[4], nw0 = ex ? inf[5] : inf[3], la0 = q[2] >= 0 ? 1 : -1;
+        if (!cfg.normal(nu0, ny0, nw0, la0)) continue;
+        let lado = 0, ca, cb, val;
+        if (cfg.eixo === 'y') { ca = cel(q[0]); cb = cel(q[2]); val = q[1]; }
+        else if (cfg.eixo === 'w') { lado = q[2] >= 0 ? 1 : 0; ca = cel(q[0]); cb = cel(q[1] * 2 - 1); val = Math.abs(q[2]); }
+        else { ca = cel(q[1] * 2 - 1); cb = cel(q[2]); val = cfg.sinal * q[0]; }
+        const ci = (lado * G + ca) * G + cb; ok[tt] = 1; CEL[tt] = ci; VAL[tt] = val; LA[tt] = lado ? 1 : -1;
+        NU[tt] = sg * (ex ? inf[3] : inf[5]); NY[tt] = inf[4]; NW[tt] = ex ? inf[5] : inf[3];
+        if (val > grade[ci]) grade[ci] = val;
+      }
+      const sel0 = new Uint8Array(nTri);
+      for (let tt = 0; tt < nTri; tt++) if (ok[tt] && VAL[tt] >= grade[CEL[tt]] - cfg.tol && cfg.normal(NU[tt], NY[tt], NW[tt], LA[tt])) sel0[tt] = 1;
+      const viz = vizinhosTri(idx, nTri, id);
+      const fin = limparBorda(sel0, viz, ok, nTri);
+      const lista2 = []; for (let tt = 0; tt < nTri; tt++) if (fin[tt]) lista2.push(tt);
+      if (lista2.length) {
+        const comps = componentes(idx, nTri, id, lista2); let maior = 0; comps.forEach((c) => { if (c.length > maior) maior = c.length; });
+        comps.forEach((c) => {
+          if (c.length < 0.18 * maior) return;
+          const vi = tv(c[0], 0); const qq = quadro(w[vi * 3], w[vi * 3 + 1], w[vi * 3 + 2]);
+          const lado = EXPL[z].w ? (qq[2] >= 0 ? 1 : -1) : 0; const chave = '' + lado;
+          let l = escolhidos.get(chave); if (!l) { l = { lado, tris: [], clip: true }; escolhidos.set(chave, l); }
+          for (let q = 0; q < c.length; q++) l.tris.push(c[q]);
+        });
+      }
     } else {
       const sel = [];
       for (let t = 0; t < nTri; t++) {
@@ -425,24 +507,34 @@ function destacarZona(z, modo) {
     else { explo.restauros.push({ malha: m, visivel: m.visible }); m.visible = false; }
     escolhidos.forEach((l, chave) => {
       const ind = []; for (let q = 0; q < l.tris.length; q++) ind.push(tv(l.tris[q], 0), tv(l.tris[q], 1), tv(l.tris[q], 2));
-      grupos.push({ malha: m, indices: ind, lado: l.lado, chave });
+      grupos.push({ malha: m, indices: ind, lado: l.lado, chave, clip: !!l.clip });
       for (let q = 0; q < l.tris.length; q++) { const vi = tv(l.tris[q], 0); somaC[0] += w[vi * 3]; somaC[1] += w[vi * 3 + 1]; somaC[2] += w[vi * 3 + 2]; nC++; }
     });
   });
   if (z === 'rodas' && !modo && chavesRodas.size < 4) { desfazerExplosao(); return destacarZona(z, 'circulo'); }
-  if (!grupos.length || nC < 12) { desfazerExplosao(); if (ILHA[z] && !modo && REGIAO[z]) return destacarZona(z, 'caixa'); return false; }
+  if (!grupos.length || nC < 12) { desfazerExplosao(); if (!modo && ILHA[z] && PELE[z]) return destacarZona(z, 'pele'); if (modo !== 'caixa' && REGIAO[z]) return destacarZona(z, 'caixa'); return false; }
   const e = EXPL[z];
+  const limitesMundo = (cfg, lado) => {
+    const b = cfg.b, cl = ex ? C.x : C.z, cw = ex ? C.z : C.x;
+    const u0 = cl + sg * b.u[0] * (L / 2), u1 = cl + sg * b.u[1] * (L / 2), lo = Math.min(u0, u1), hi = Math.max(u0, u1);
+    let wlo, whi;
+    if (lado) { const a = cw + lado * b.aw[0] * (W / 2), c = cw + lado * b.aw[1] * (W / 2); wlo = Math.min(a, c); whi = Math.max(a, c); }
+    else { wlo = cw - b.aw[1] * (W / 2); whi = cw + b.aw[1] * (W / 2); }
+    const y0 = mn[1] + b.v[0] * H, y1 = mn[1] + b.v[1] * H;
+    return ex ? [[lo, y0, wlo], [hi, y1, whi]] : [[wlo, y0, lo], [whi, y1, hi]];
+  };
   grupos.forEach((gr) => {
     const m = gr.malha, geo = new m.geometry.constructor();
     for (const nome in m.geometry.attributes) geo.setAttribute(nome, m.geometry.attributes[nome]);
     geo.setIndex(gr.indices);
-    const peca = m.clone(false); peca.geometry = geo; peca.material = m.material.clone(); peca.userData = { c3dPeca: true };
+    const peca = m.clone(false); peca.geometry = geo; peca.material = m.material.clone(); peca.material.side = 2; peca.userData = { c3dPeca: true };
+    let un = null; if (gr.clip && PELE[z]) { const bb = limitesMundo(PELE[z], gr.lado); const me = m.matrixWorld.elements; un = cortar(peca.material, bb[0], bb[1], [me[12], me[13], me[14]]); }
     if (peca.material.emissive) { peca.material.emissive.setRGB(0.25, 0.5, 1); peca.material.emissiveIntensity = 0.14; }
     m.parent.add(peca);
     const ox = ex ? sg * e.u * L : gr.lado * e.w * W, oy = e.v * H, oz = ex ? gr.lado * e.w * W : sg * e.u * L;
     const inv = m.parent.matrixWorld.clone().invert().elements;
     const lx = inv[0] * ox + inv[4] * oy + inv[8] * oz, ly = inv[1] * ox + inv[5] * oy + inv[9] * oz, lz = inv[2] * ox + inv[6] * oy + inv[10] * oz;
-    explo.pecas.push({ peca, base: [peca.position.x, peca.position.y, peca.position.z], off: [lx, ly, lz] });
+    explo.pecas.push({ peca, base: [peca.position.x, peca.position.y, peca.position.z], off: [lx, ly, lz], offW: [ox, oy, oz], un });
   });
   explo.offMundo = [ex ? sg * e.u * L : 0, e.v * H, ex ? 0 : sg * e.u * L];
   lista.forEach((m) => { const mats = Array.isArray(m.material) ? m.material : [m.material]; mats.forEach((mt) => { if (!explo.mats.has(mt)) { explo.mats.set(mt, { transparent: mt.transparent, opacity: mt.opacity, depthWrite: mt.depthWrite }); mt.transparent = true; mt.opacity = Math.min(mt.opacity, 0.14); mt.depthWrite = false; mt.needsUpdate = true; } }); });
