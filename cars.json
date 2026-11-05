@@ -19,7 +19,8 @@
         "license": "CC Attribution",
         "sourceName": "Fiat+strada+picape+pickup+carro+miniatura+",
         "sourceUrl": "https://sketchfab.com/3d-models/fiatstradapicapepickupcarrominiatura-b314340548b14980bf7dfe17ed7353ec"
-      }
+      },
+      "frente": "-x"
     },
     {
       "id": "hyundai-hb20",
@@ -40,7 +41,8 @@
         "license": "CC Attribution",
         "sourceName": "Hyundai Hb20 2025",
         "sourceUrl": "https://sketchfab.com/3d-models/hyundai-hb20-2025-bad2259ddef245d78e5e6052be3fb63b"
-      }
+      },
+      "frente": "+z"
     },
     {
       "id": "byd-dolphin-mini",
@@ -61,7 +63,8 @@
         "license": "CC Attribution",
         "sourceName": "2024 BYD Dolphin Mini",
         "sourceUrl": "https://sketchfab.com/3d-models/2024-byd-dolphin-mini-c4a97baaadda487faa7ed90ecd1b057d"
-      }
+      },
+      "frente": "+z"
     },
     {
       "id": "fiat-argo",
@@ -82,7 +85,8 @@
         "license": "CC Attribution",
         "sourceName": "FIAT Argo",
         "sourceUrl": "https://sketchfab.com/3d-models/fiat-argo-5fd176af97884d1eabdce909f9a854ed"
-      }
+      },
+      "frente": "-x"
     },
     {
       "id": "volkswagen-t-cross",
@@ -103,7 +107,8 @@
         "license": "CC Attribution",
         "sourceName": "Volkswagen T-Cross TSI LEGEND 2026",
         "sourceUrl": "https://sketchfab.com/3d-models/volkswagen-t-cross-tsi-legend-2026-d8417fa18b184b2d81174f81dfe131c6"
-      }
+      },
+      "frente": "+z"
     },
     {
       "id": "chevrolet-onix",
@@ -125,7 +130,8 @@
         "license": "CC Attribution",
         "sourceName": "Chevrolet Onix 2024",
         "sourceUrl": "https://sketchfab.com/3d-models/chevrolet-onix-2024-bcc8987606db4088b039e55fe70fa379"
-      }
+      },
+      "frente": "+z"
     },
     {
       "id": "toyota-yaris-cross",
@@ -144,7 +150,8 @@
         "license": "CC Attribution",
         "sourceName": "Toyota Yaris Cross 2025",
         "sourceUrl": "https://sketchfab.com/3d-models/toyota-yaris-cross-2025-72699c7998224d44a5e136b8307cd328"
-      }
+      },
+      "frente": "+z"
     },
     {
       "id": "hyundai-creta",
@@ -165,7 +172,8 @@
         "license": "CC Attribution",
         "sourceName": "Hyundai Creta",
         "sourceUrl": "https://sketchfab.com/3d-models/hyundai-creta-67645b6f549441a786e2b4050dc0268b"
-      }
+      },
+      "frente": "-x"
     },
     {
       "id": "gwm-haval-h6",
@@ -189,7 +197,8 @@
         "license": "CC Attribution",
         "sourceName": "HAVAL H6 HEV 2024",
         "sourceUrl": "https://sketchfab.com/3d-models/haval-h6-hev-2024-5f4841ba0ea344b0b78f1938c6f3dd37"
-      }
+      },
+      "frente": "-z"
     },
     {
       "id": "fiat-toro",
@@ -211,7 +220,8 @@
         "license": "CC Attribution",
         "sourceName": "Fiat_toro",
         "sourceUrl": "https://sketchfab.com/3d-models/fiat-toro-824ea9935afc44d0bbf23b911b4dc6f9"
-      }
+      },
+      "frente": "-z"
     },
     {
       "id": "honda-hr-v",
@@ -232,7 +242,8 @@
         "license": "CC Attribution",
         "sourceName": "2022 Honda HR-V e:Hev",
         "sourceUrl": "https://sketchfab.com/3d-models/2022-honda-hr-v-ehev-e9128a46adc34e5e995ab7e8ad36339c"
-      }
+      },
+      "frente": "+z"
     },
     {
       "id": "toyota-hilux",
@@ -254,7 +265,8 @@
         "license": "CC Attribution",
         "sourceName": "2022 Toyota Hilux",
         "sourceUrl": "https://sketchfab.com/3d-models/2022-toyota-hilux-82bd37c5065040098fb0b86e07fcb959"
-      }
+      },
+      "frente": "-z"
     },
     {
       "id": "jeep-compass",
@@ -275,7 +287,8 @@
         "license": "CC Attribution",
         "sourceName": "JEEP COMPASS 2021",
         "sourceUrl": "https://sketchfab.com/3d-models/jeep-compass-2021-7181289a07794a6ead28ffd56bfbbc1d"
-      }
+      },
+      "frente": "+z"
     },
     {
       "id": "volkswagen-saveiro",
@@ -294,7 +307,8 @@
         "license": "CC Attribution",
         "sourceName": "Volkswagen Saveiro",
         "sourceUrl": "https://sketchfab.com/3d-models/volkswagen-saveiro-2830cd9a0fab4d7db1102ca5b3d96580"
-      }
+      },
+      "frente": "-z"
     },
     {
       "id": "chevrolet-tracker",
@@ -315,7 +329,8 @@
         "license": "CC Attribution",
         "sourceName": "chevrolet tracker 2026",
         "sourceUrl": "https://sketchfab.com/3d-models/chevrolet-tracker-2026-fde63e1467a64c688f7072230dfa22c3"
-      }
+      },
+      "frente": "+z"
     },
     {
       "id": "volkswagen-polo",
@@ -336,7 +351,8 @@
         "license": "CC Attribution",
         "sourceName": "2023 Volkswagen Polo GTI",
         "sourceUrl": "https://sketchfab.com/3d-models/2023-volkswagen-polo-gti-42af1df85fea476e8f74ee2930fcfa29"
-      }
+      },
+      "frente": "+z"
     }
   ],
   "name": "Autoford — modelos 3D",
