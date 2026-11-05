@@ -257,9 +257,12 @@ mv.addEventListener('pointerup', (e) => {
 const explo = { ativa: false, zona: null, restauros: [], pecas: [], mats: new Map(), ctl: null, pulso: null, offMundo: null };
 const EXPL = {
   'capo': { u: 0.08, v: 0.62, w: 0 }, 'parabrisa': { u: 0.1, v: 0.55, w: 0 }, 'teto': { u: 0, v: 0.7, w: 0 }, 'portamalas': { u: -0.12, v: 0.62, w: 0 },
-  'rodas': { u: 0, v: 0, w: 0.42 }, 'retrovisor': { u: 0.05, v: 0.12, w: 0.35 }, 'farol': { u: 0.22, v: 0.08, w: 0.2 }, 'lanterna': { u: -0.2, v: 0.06, w: 0.12 }
+  'rodas': { u: 0, v: 0, w: 0.42 }, 'parachoque-d': { u: 0.45, v: 0, w: 0 }, 'parachoque-t': { u: -0.45, v: 0, w: 0 }, 'portas': { u: 0, v: 0.02, w: 0.5 }, 'retrovisor': { u: 0.05, v: 0.12, w: 0.35 }, 'farol': { u: 0.22, v: 0.08, w: 0.2 }, 'lanterna': { u: -0.2, v: 0.06, w: 0.12 }
 };
 const REGIAO = {
+  'parachoque-d': (u, v, w, nu, ny) => u > 0.72 && v < 0.5 && (nu > 0.3 || (u > 0.84 && Math.abs(w) > 0.45)),
+  'parachoque-t': (u, v, w, nu, ny) => u < -0.72 && v < 0.5 && (nu < -0.3 || (u < -0.84 && Math.abs(w) > 0.45)),
+  'portas': (u, v, w, nu, ny, nw) => u > -0.34 && u < 0.3 && v > 0.36 && v < 0.8 && Math.abs(w) > 0.55 && Math.abs(nw) > 0.72 && ny < 0.55,
   'capo': (u, v, w, nu, ny) => u > 0.2 && u < 0.72 && Math.abs(w) < 0.7 && v > 0.5 && ny > 0.35,
   'teto': (u, v, w, nu, ny) => v > 0.8 && u > -0.62 && u < 0.28 && Math.abs(w) < 0.82 && ny > 0.4,
   'parabrisa': (u, v, w, nu, ny) => u > 0 && u < 0.46 && v > 0.55 && Math.abs(w) < 0.8 && ny > 0.12 && ny < 0.78 && nu > 0.15,
@@ -268,12 +271,14 @@ const REGIAO = {
   'portamalas': (u, v, w, nu, ny) => u < -0.26 && u > -0.8 && Math.abs(w) < 0.76 && v > 0.45 && (ny > 0.35 || nu < -0.45)
 };
 const ILHA = {
+  'parachoque-d': (i) => i.n > 60 && i.cu > 0.62 && i.cv < 0.5 && i.sW > 0.55 * i.W && i.sV < 0.42 * i.H && i.sU < 0.3 * i.L,
+  'parachoque-t': (i) => i.n > 60 && i.cu < -0.62 && i.cv < 0.5 && i.sW > 0.55 * i.W && i.sV < 0.42 * i.H && i.sU < 0.3 * i.L,
   'rodas': (i) => i.n > 40 && i.gy < 0.1 * i.H && i.sV > 0.22 * i.H && i.sV < 0.62 * i.H && i.sV / (i.sU || 1) > 0.7 && i.sV / (i.sU || 1) < 1.35 && i.sW < 0.8 * i.sV && i.cv < 0.42 && Math.abs(i.cw) > 0.55,
   'retrovisor': (i) => i.n > 10 && Math.abs(i.cw) > 0.6 && i.cv > 0.45 && i.cv < 0.92 && i.cu > -0.1 && i.cu < 0.62 && i.sU < 0.28 * i.L && i.sV < 0.3 * i.H,
   'farol': (i) => i.n > 20 && i.cu > 0.6 && i.cv > 0.35 && i.cv < 0.8 && Math.abs(i.cw) > 0.3 && i.sU < 0.3 * i.L && i.sV < 0.3 * i.H,
   'lanterna': (i) => i.n > 20 && i.cu < -0.6 && i.cv > 0.35 && i.cv < 0.8 && Math.abs(i.cw) > 0.3 && i.sU < 0.3 * i.L && i.sV < 0.3 * i.H
 };
-const LABEL_ZONA = { 'capo': 'Capô', 'teto': 'Teto', 'parabrisa': 'Parabrisa', 'portamalas': 'Porta-malas', 'rodas': 'Rodas', 'retrovisor': 'Retrovisores', 'farol': 'Faróis', 'lanterna': 'Lanternas' };
+const LABEL_ZONA = { 'parachoque-d': 'Para-choque dianteiro', 'parachoque-t': 'Para-choque traseiro', 'portas': 'Portas', 'capo': 'Capô', 'teto': 'Teto', 'parabrisa': 'Parabrisa', 'portamalas': 'Porta-malas', 'rodas': 'Rodas', 'retrovisor': 'Retrovisores', 'farol': 'Faróis', 'lanterna': 'Lanternas' };
 function simboloMV(nome) { return Object.getOwnPropertySymbols(mv).find((s) => s.description === nome); }
 function renderizar() { const s = simboloMV('needsRender'); if (s && typeof mv[s] === 'function') { try { mv[s](); } catch (e) {} } }
 function malhas() {
@@ -313,7 +318,7 @@ function componentes(idx, nTri, id, lista) {
   for (let q = 0; q < todos.length; q++) { const t = todos[q]; const r = raiz(vt(t, 0)); let l = mapa.get(r); if (!l) { l = []; mapa.set(r, l); } l.push(t); }
   return [...mapa.values()];
 }
-function destacarZona(z, forcaCaixa) {
+function destacarZona(z, modo) {
   desfazerExplosao();
   const lista = malhas(); if (!lista.length || !atual || !EXPL[z]) return false;
   const f = atual.frente || '+z', ex = f[1] === 'x', sg = f[0] === '+' ? 1 : -1;
@@ -334,19 +339,57 @@ function destacarZona(z, forcaCaixa) {
   const L = ex ? D.x : D.z, W = ex ? D.z : D.x, H = D.y;
   const quadro = (x, y, zz) => [sg * ((ex ? x - C.x : zz - C.z) / (L / 2)), (y - mn[1]) / H, (ex ? zz - C.z : x - C.x) / (W / 2)];
   const grupos = []; let somaC = [0, 0, 0], nC = 0;
-  const ehIlha = !!ILHA[z] && !forcaCaixa;
+  const ehIlha = !!ILHA[z] && !modo;
+  const chavesRodas = new Set();
+  const infoTri = (w, idx, tt) => {
+    const i0 = idx ? idx[tt * 3] : tt * 3, i1 = idx ? idx[tt * 3 + 1] : tt * 3 + 1, i2 = idx ? idx[tt * 3 + 2] : tt * 3 + 2;
+    const ax = w[i0 * 3], ay = w[i0 * 3 + 1], az = w[i0 * 3 + 2], bx = w[i1 * 3], by = w[i1 * 3 + 1], bz = w[i1 * 3 + 2], cx = w[i2 * 3], cy = w[i2 * 3 + 1], cz = w[i2 * 3 + 2];
+    const ux = bx - ax, uy = by - ay, uz = bz - az, vx = cx - ax, vy = cy - ay, vz = cz - az;
+    let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const ln = Math.sqrt(nx * nx + ny * ny + nz * nz); if (!ln) return null; nx /= ln; ny /= ln; nz /= ln;
+    const px = (ax + bx + cx) / 3, py = (ay + by + cy) / 3, pz = (az + bz + cz) / 3;
+    if ((px - C.x) * nx + (py - C.y) * ny + (pz - C.z) * nz < 0) { nx = -nx; ny = -ny; nz = -nz; }
+    return [px, py, pz, nx, ny, nz];
+  };
+  let circulos = null;
+  if (modo === 'circulo') {
+    const cand = [];
+    lista.forEach((m, k) => {
+      const g = m.geometry, w = mundo[k], idx = g.index ? g.index.array : null, nT = Math.floor((idx ? idx.length : g.attributes.position.count) / 3);
+      for (let tt = 0; tt < nT; tt++) { const inf = infoTri(w, idx, tt); if (!inf) continue; const q = quadro(inf[0], inf[1], inf[2]); const nw = ex ? inf[5] : inf[3]; if (q[1] < 0.4 && Math.abs(q[2]) > 0.5 && nw * q[2] > 0 && Math.abs(nw) > 0.55) cand.push([q[0], q[1], q[2] >= 0 ? 1 : -1, Math.abs(q[2])]); }
+    });
+    circulos = [];
+    [[1, 1], [1, -1], [-1, 1], [-1, -1]].forEach((par) => {
+      const lado = par[0], ponta = par[1];
+      const pts = cand.filter((c) => c[2] === lado && (ponta > 0 ? c[0] > 0 : c[0] < 0)); if (pts.length < 20) return;
+      const med = (arr) => { arr.sort((a, b) => a - b); return arr[Math.floor(arr.length / 2)]; };
+      const cu = med(pts.map((p) => p[0])), cv = med(pts.map((p) => p[1]));
+      const ds = pts.map((p) => Math.hypot((p[0] - cu) * (L / 2), (p[1] - cv) * H)).sort((a, b) => a - b);
+      let rr = ds[Math.floor(ds.length * 0.6)] * 1.0; rr = Math.min(Math.max(rr, 0.1 * H), 0.3 * H);
+      const perto = pts.filter((p) => Math.hypot((p[0] - cu) * (L / 2), (p[1] - cv) * H) < rr).map((p) => p[3]);
+      const pw = perto.length ? med(perto) : 0.7;
+      circulos.push({ lado, chave: lado + (ponta > 0 ? 'f' : 'r'), cu, cv, r: rr, pw });
+    });
+  }
   lista.forEach((m, k) => {
     const g = m.geometry, w = mundo[k], idx = g.index ? g.index.array : null, nTri = Math.floor((idx ? idx.length : g.attributes.position.count) / 3);
     const id = soldar(w), tv = (t, j) => (idx ? idx[t * 3 + j] : t * 3 + j);
     const escolhidos = new Map();
-    if (ehIlha) {
+    if (modo === 'circulo') {
+      for (let tt = 0; tt < nTri; tt++) {
+        const inf = infoTri(w, idx, tt); if (!inf) continue; const q = quadro(inf[0], inf[1], inf[2]); const nw = ex ? inf[5] : inf[3];
+        if (Math.abs(q[2]) < 0.45 || Math.abs(nw) < 0.3) continue;
+        for (let ci = 0; ci < circulos.length; ci++) { const c = circulos[ci]; if (c.lado !== (q[2] >= 0 ? 1 : -1) || nw * c.lado < 0 || Math.abs(Math.abs(q[2]) - c.pw) > 0.1) continue;
+          if (Math.hypot((q[0] - c.cu) * (L / 2), (q[1] - c.cv) * H) < c.r) { let l = escolhidos.get(c.chave); if (!l) { l = { lado: c.lado, tris: [] }; escolhidos.set(c.chave, l); } l.tris.push(tt); break; } }
+      }
+    } else if (ehIlha) {
       componentes(idx, nTri, id, null).forEach((tris) => {
         const imn = [1e9, 1e9, 1e9], imx = [-1e9, -1e9, -1e9];
         for (let q = 0; q < tris.length; q++) for (let j = 0; j < 3; j++) { const vi = tv(tris[q], j); for (let a = 0; a < 3; a++) { const c = w[vi * 3 + a]; if (c < imn[a]) imn[a] = c; if (c > imx[a]) imx[a] = c; } }
         const c = quadro((imn[0] + imx[0]) / 2, (imn[1] + imx[1]) / 2, (imn[2] + imx[2]) / 2);
-        const info = { n: tris.length, L, H, gy: imn[1] - mn[1], cu: c[0], cv: c[1], cw: c[2], sU: ex ? imx[0] - imn[0] : imx[2] - imn[2], sV: imx[1] - imn[1], sW: ex ? imx[2] - imn[2] : imx[0] - imn[0] };
+        const info = { n: tris.length, L, H, W, gy: imn[1] - mn[1], cu: c[0], cv: c[1], cw: c[2], sU: ex ? imx[0] - imn[0] : imx[2] - imn[2], sV: imx[1] - imn[1], sW: ex ? imx[2] - imn[2] : imx[0] - imn[0] };
         if (!ILHA[z](info)) return;
         const lado = c[2] >= 0 ? 1 : -1, chave = z === 'rodas' ? lado + (c[0] >= 0 ? 'f' : 'r') : '' + lado;
+        if (z === 'rodas') chavesRodas.add(chave);
         let l = escolhidos.get(chave); if (!l) { l = { lado, tris: [] }; escolhidos.set(chave, l); }
         for (let q = 0; q < tris.length; q++) l.tris.push(tris[q]);
       });
@@ -360,7 +403,7 @@ function destacarZona(z, forcaCaixa) {
         const px = (ax + bx + cx) / 3, py = (ay + by + cy) / 3, pz = (az + bz + cz) / 3;
         if ((px - C.x) * nx + (py - C.y) * ny + (pz - C.z) * nz < 0) { nx = -nx; ny = -ny; nz = -nz; }
         const q = quadro(px, py, pz), nu = sg * (ex ? nx : nz);
-        if (REGIAO[z](q[0], q[1], q[2], nu, ny)) sel.push(t);
+        if (REGIAO[z](q[0], q[1], q[2], nu, ny, ex ? nz : nx)) sel.push(t);
       }
       if (sel.length) {
         const comps = componentes(idx, nTri, id, sel); let maior = 0; comps.forEach((c) => { if (c.length > maior) maior = c.length; });
@@ -386,7 +429,8 @@ function destacarZona(z, forcaCaixa) {
       for (let q = 0; q < l.tris.length; q++) { const vi = tv(l.tris[q], 0); somaC[0] += w[vi * 3]; somaC[1] += w[vi * 3 + 1]; somaC[2] += w[vi * 3 + 2]; nC++; }
     });
   });
-  if (!grupos.length || nC < 12) { desfazerExplosao(); if (ILHA[z] && !forcaCaixa && REGIAO[z]) return destacarZona(z, true); return false; }
+  if (z === 'rodas' && !modo && chavesRodas.size < 4) { desfazerExplosao(); return destacarZona(z, 'circulo'); }
+  if (!grupos.length || nC < 12) { desfazerExplosao(); if (ILHA[z] && !modo && REGIAO[z]) return destacarZona(z, 'caixa'); return false; }
   const e = EXPL[z];
   grupos.forEach((gr) => {
     const m = gr.malha, geo = new m.geometry.constructor();
@@ -435,7 +479,6 @@ function focarZona(z) {
   if (!EXPL[z]) { desfazerExplosao(); return; }
   setTimeout(() => { try { destacarZona(z); } catch (er) { desfazerExplosao(); } }, 60);
 }
-
 const mqCel = window.matchMedia('(max-width:720px)');
 const gaveta = { estado: 'peek', arrasto: null };
 function posGaveta() { const H = window.innerHeight, h = Math.round(H * 0.86); return { peek: h - 96, meio: h - Math.round(H * 0.5), cheio: 0 }; }
