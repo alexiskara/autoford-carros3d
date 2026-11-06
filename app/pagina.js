@@ -458,6 +458,27 @@ function mascararMaterial(mt, un) {
 }
 /* ===== Perfil do carro: acha capo, para-brisa, teto e porta-malas pela silhueta (altura maxima ao longo do comprimento) ===== */
 function perfilAuto(tipo, lista, C, F, S, minY, mh, wh, H) {
+  if (tipo === 'retrovisor') {
+    /* espelho = vertices mais salientes da lateral, na altura da janela e perto da frente das portas */
+    const pts = [];
+    lista.forEach((m) => {
+      if (!m.visible) return;
+      m.updateWorldMatrix(true, false);
+      const p = m.geometry.attributes.position, e = m.matrixWorld.elements;
+      for (let i = 0; i < p.count; i++) {
+        const x = p.getX(i), y = p.getY(i), w = p.getZ(i);
+        const X = e[0] * x + e[4] * y + e[8] * w + e[12], Y = e[1] * x + e[5] * y + e[9] * w + e[13], Z = e[2] * x + e[6] * y + e[10] * w + e[14];
+        const U = ((X - C[0]) * F[0] + (Y - C[1]) * F[1] + (Z - C[2]) * F[2]) / mh, V = (Y - minY) / H, Wn = Math.abs((X - C[0]) * S[0] + (Z - C[2]) * S[2]) / wh;
+        if (V > 0.5 && V < 0.9 && U > 0.0 && U < 0.5) pts.push([U, V, Wn]);
+      }
+    });
+    if (pts.length < 50) return {};
+    const ws = pts.map((q) => q[2]).sort((a, b) => a - b), wm = ws[Math.floor(ws.length * 0.995)];
+    const sel = pts.filter((q) => q[2] >= wm - 0.1);
+    const pc = (k, a) => { const v = sel.map((q) => q[k]).sort((x, y) => x - y); return v[Math.min(v.length - 1, Math.floor(v.length * a))]; };
+    explo.espelho = { wm, n: sel.length, u: [pc(0, 0.02), pc(0, 0.98)], v: [pc(1, 0.02), pc(1, 0.98)] };
+    return { u: [pc(0, 0.02) - 0.03, pc(0, 0.98) + 0.03], v: [pc(1, 0.02) - 0.03, pc(1, 0.98) + 0.03], g: [wm - 0.22, 1.6] };
+  }
   const N = 90, U0 = -1.1, U1 = 1.1, h = new Array(N).fill(-1);
   lista.forEach((m) => {
     if (!m.visible) return;
@@ -518,6 +539,7 @@ function destacarMascara(z, passo2) {
   const temVidro = lista.some((m) => ehVidro(m));
   const usa = (m) => {
     const mt = Array.isArray(m.material) ? m.material[0] : m.material; if (!mt) return false;
+    if (cfg.mats) return cfg.mats.test(mt.name || '');
     if (cfg.tudo) return true;
     const v = ehVidro(m);
     if (regra === 'so') return temVidro ? v : true; /* modelo sem vidro separado: a mascara de forma ja restringe a area */
@@ -576,12 +598,13 @@ const RODAS_MASCARA = new Set(['toyota-hilux', 'fiat-strada']);
 /* regioes especificas por modelo (quando as pecas do modelo 3D nao sao separaveis) */
 const MASCARA_ESPECIAL = {
   'toyota-hilux': {
-    'farol': { real: true, todos: true, modo: 1, u: [0.84, 1.06], v: [0.4, 0.66], g: [0.3, 0.86], dir: [1, 0, 0], lim: -0.3, raio: 0.03 }
+    'retrovisor': { auto: 'retrovisor', real: true, todos: true, modo: 1, u: [0.1, 0.3], v: [0.52, 0.74], g: [0.84, 1.3], dir: [0, 0, 1], lim: -0.3, raio: 0.03 },
+    'farol': { real: true, todos: true, modo: 1, u: [0.86, 1.06], v: [0.46, 0.64], g: [0.45, 0.95], dir: [1, 0, 0], lim: -0.3, raio: 0.03 }
   },
   'chevrolet-tracker': {
     'farol': { real: true, todos: true, modo: 1, u: [0.86, 1.06], v: [0.38, 0.66], g: [0.3, 0.9], dir: [1, 0, 0], lim: -0.3, raio: 0.03 },
     'lanterna': { real: true, todos: true, modo: 1, u: [-1.06, -0.88], v: [0.4, 0.7], g: [0.35, 0.92], dir: [-1, 0, 0], lim: -0.3, raio: 0.03 },
-    'retrovisor': { real: true, todos: true, modo: 1, u: [0.1, 0.3], v: [0.52, 0.74], g: [0.84, 1.3], dir: [0, 0, 1], lim: -0.3, raio: 0.03 }
+    'retrovisor': { auto: 'retrovisor', real: true, todos: true, modo: 1, u: [0.1, 0.3], v: [0.52, 0.74], g: [0.84, 1.3], dir: [0, 0, 1], lim: -0.3, raio: 0.03 }
   },
   'fiat-strada': {
     'farol': { real: true, todos: true, modo: 1, u: [0.84, 1.06], v: [0.36, 0.64], g: [0.3, 0.9], dir: [1, 0, 0], lim: -0.3, raio: 0.03 },
