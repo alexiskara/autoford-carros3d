@@ -306,15 +306,133 @@ $$('#ep-faq details').forEach((d) => {
   if (box) box.innerHTML = ['Capô', 'Para-choque', 'Farol', 'Lanterna', 'Retrovisor', 'Roda', 'Porta', 'Parabrisa', 'Grade', 'Tampa traseira', 'Paralama', 'Maçaneta'].map((p) => '<a href="/q?keywords=' + encodeURIComponent(p) + '">' + p + '</a>').join('');
 }
 
+/* ---------- pecas soltas: fatia a lataria por regiao e separa rodas/farois/lanternas ---------- */
+function prepararPecas(mv, carro) {
+  const simbolo = (n) => Object.getOwnPropertySymbols(mv).find((s) => s.description === n);
+  const scene = mv[simbolo('scene')], precisa = simbolo('needsRender');
+  scene.updateMatrixWorld(true);
+  const meshes = [];
+  scene.traverse((o) => { if (o.isMesh && !o.isSkinnedMesh && o.visible && o.geometry && o.geometry.attributes.position && o.geometry.attributes.position.count > 40) meshes.push(o); });
+  if (!meshes.length) return null;
+  const V3 = meshes[0].position.constructor, Mesh = meshes[0].constructor, Geo = meshes[0].geometry.constructor;
+  const f = carro.frente || '+z', ex = f[1] === 'x', sg = f[0] === '+' ? 1 : -1;
+  const pint = new Set((carro.paint && carro.paint.materials) || []);
+  /* caixa do carro (percentis, ignora pecas soltas) */
+  const am = [[], [], []];
+  meshes.forEach((m) => { const p = m.geometry.attributes.position, e = m.matrixWorld.elements; for (let i = 0; i < p.count; i += 3) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i); am[0].push(e[0] * x + e[4] * y + e[8] * z + e[12]); am[1].push(e[1] * x + e[5] * y + e[9] * z + e[13]); am[2].push(e[2] * x + e[6] * y + e[10] * z + e[14]); } });
+  const lim = am.map((v) => { v.sort((a, b) => a - b); const n = v.length; return [v[Math.floor(n * 0.004)], v[Math.ceil(n * 0.996) - 1]]; });
+  const C = lim.map((l) => (l[0] + l[1]) / 2), D = lim.map((l) => l[1] - l[0]);
+  const L = ex ? D[0] : D[2], W = ex ? D[2] : D[0], H = D[1], minY = lim[1][0];
+  const F = ex ? new V3(sg, 0, 0) : new V3(0, 0, sg), S = ex ? new V3(0, 0, 1) : new V3(1, 0, 0), UP = new V3(0, 1, 0);
+  const nomeMat = (m) => String((Array.isArray(m.material) ? m.material[0] : m.material).name || '');
+  const pecas = [];
+  const PARAM = {
+    capo: { passo: 0, dir: () => UP.clone().multiplyScalar(0.9).addScaledVector(F, 0.45), dist: 0.24 * L },
+    farol: { passo: 0, dir: () => F.clone().addScaledVector(UP, 0.12), dist: 0.26 * L },
+    'parachoque-d': { passo: 0, dir: () => F.clone().addScaledVector(UP, -0.08), dist: 0.3 * L },
+    'porta-e': { passo: 1, dir: () => S.clone().negate(), dist: 0.3 * L },
+    'porta-d': { passo: 1, dir: () => S.clone(), dist: 0.3 * L },
+    'roda-e': { passo: 2, dir: () => S.clone().negate(), dist: 0.34 * L },
+    'roda-d': { passo: 2, dir: () => S.clone(), dist: 0.34 * L },
+    portamalas: { passo: 3, dir: () => UP.clone().multiplyScalar(0.8).addScaledVector(F, -0.55), dist: 0.24 * L },
+    lanterna: { passo: 3, dir: () => F.clone().negate().addScaledVector(UP, 0.1), dist: 0.26 * L },
+    'parachoque-t': { passo: 3, dir: () => F.clone().negate().addScaledVector(UP, -0.08), dist: 0.3 * L },
+    teto: { passo: 4, dir: () => UP.clone(), dist: 0.34 * L }
+  };
+  const classifica = (mat, u, v, w, nu, ny, nw) => {
+    if (/roda|pneu|wheel|tire|tyre|calota|disk|disc/i.test(mat)) { if (v < 0.5 && Math.abs(w) > 0.3) return w < 0 ? 'roda-e' : 'roda-d'; return null; }
+    if (/lente|lens|farol|headl|reflex|lanterna|tail|stop|light/i.test(mat)) { if (u > 0.5) return 'farol'; if (u < -0.5) return 'lanterna'; return null; }
+    const zg = ((u, v, w, nu, ny, nw) => {
+    if (u > 0.8 && v < 0.46 && nu > 0.1) return 'parachoque-d';
+    if (u < -0.8 && v < 0.46 && nu < -0.1) return 'parachoque-t';
+    if (u > 0.26 && u < 0.82 && v > 0.38 && ny > 0.5 && Math.abs(w) < 0.7) return 'capo';
+    if (u > -0.55 && u < 0.28 && v > 0.62 && ny > 0.5 && Math.abs(w) < 0.8) return 'teto';
+    if (u < -0.3 && u > -0.88 && v > 0.4 && (ny > 0.3 || nu < -0.5) && Math.abs(w) < 0.75) return 'portamalas';
+    if (Math.abs(w) > 0.45 && u > -0.4 && u < 0.34 && v > 0.26 && v < 0.96 && Math.abs(nw) > 0.1 && Math.abs(ny) < 0.92) return w < 0 ? 'porta-e' : 'porta-d';
+    return null; })(u, v, w, nu, ny, nw);
+    if (!zg) return null;
+    if (zg === 'teto' || zg === 'portamalas') return /vidro|glass|window|cristal|parabr/i.test(mat) ? null : zg;
+    return (pint.size && !pint.has(mat)) ? null : zg;
+  };
+  meshes.forEach((m) => {
+    const mat = nomeMat(m), g = m.geometry, pos = g.attributes.position, idx = g.index, nT = Math.floor((idx ? idx.count : pos.count) / 3), e = m.matrixWorld.elements;
+    const wp = (i) => { const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i); return [e[0] * x + e[4] * y + e[8] * z + e[12], e[1] * x + e[5] * y + e[9] * z + e[13], e[2] * x + e[6] * y + e[10] * z + e[14]]; };
+    const baldes = new Map(); let algum = false;
+    for (let t = 0; t < nT; t++) {
+      const i0 = idx ? idx.getX(t * 3) : t * 3, i1 = idx ? idx.getX(t * 3 + 1) : t * 3 + 1, i2 = idx ? idx.getX(t * 3 + 2) : t * 3 + 2;
+      const a = wp(i0), b = wp(i1), c = wp(i2);
+      const cx = (a[0] + b[0] + c[0]) / 3, cy = (a[1] + b[1] + c[1]) / 3, cz = (a[2] + b[2] + c[2]) / 3;
+      const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+      let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const ln = Math.hypot(nx, ny, nz) || 1; nx /= ln; ny /= ln; nz /= ln;
+      /* a normal pode estar invertida (ordem dos vertices): usa a do atributo quando existir */
+      const na = g.attributes.normal; if (na) { const k = na.getX(i0) * 0, ax = na.getX(i0), ay = na.getY(i0), az = na.getZ(i0), M = m.matrixWorld.elements; const wx = M[0] * ax + M[4] * ay + M[8] * az, wy = M[1] * ax + M[5] * ay + M[9] * az, wz = M[2] * ax + M[6] * ay + M[10] * az, lw = Math.hypot(wx, wy, wz) || 1; nx = wx / lw; ny = wy / lw; nz = wz / lw; }
+      const along = (ex ? cx - C[0] : cz - C[2]), lat = (ex ? cz - C[2] : cx - C[0]);
+      const u = sg * along / (L / 2), w = lat / (W / 2), v = (cy - minY) / H;
+      const nu = sg * (ex ? nx : nz), nw = ex ? nz : nx;
+      const z = classifica(mat, u, v, w, nu, ny, nw);
+      const chave = z || '_resto'; if (z) algum = true;
+      let bk = baldes.get(chave); if (!bk) { bk = []; baldes.set(chave, bk); } bk.push(i0, i1, i2);
+    }
+    if (!algum) return;
+    /* monta geometria nao indexada para cada balde (aceita atributos intercalados) */
+    const nomes = Object.keys(g.attributes);
+    const AttrF = new Geo().setFromPoints([new V3()]).attributes.position.constructor;
+    const construir = (tris) => {
+      const ng = new Geo();
+      nomes.forEach((n) => {
+        const at = g.attributes[n], s = at.itemSize, inter = !!at.isInterleavedBufferAttribute;
+        const arr = inter ? new Float32Array(tris.length * s) : new at.array.constructor(tris.length * s);
+        tris.forEach((vi, k) => { if (inter) { arr[k * s] = at.getX(vi); if (s > 1) arr[k * s + 1] = at.getY(vi); if (s > 2) arr[k * s + 2] = at.getZ(vi); if (s > 3) arr[k * s + 3] = at.getW(vi); } else { for (let q = 0; q < s; q++) arr[k * s + q] = at.array[vi * s + q]; } });
+        ng.setAttribute(n, inter ? new AttrF(arr, s, at.normalized) : new at.constructor(arr, s, at.normalized));
+      });
+      return ng;
+    };
+    const pai = m.parent, novos = [];
+    baldes.forEach((tris, chave) => novos.push([chave, construir(tris)]));   /* tudo construido antes de alterar o carro */
+    novos.forEach(([chave, ng]) => {
+      if (chave === '_resto') { m.geometry = ng; return; }
+      const mat2 = Array.isArray(m.material) ? m.material.map((q) => q.clone()) : m.material.clone();
+      const nm = new Mesh(ng, mat2);
+      nm.position.copy(m.position); nm.quaternion.copy(m.quaternion); nm.scale.copy(m.scale); nm.name = m.name + '-' + chave;
+      pai.add(nm); nm.updateMatrixWorld(true);
+      const prm = PARAM[chave], base = new V3().setFromMatrixPosition(nm.matrixWorld);
+      const mats = Array.isArray(mat2) ? mat2 : [mat2];
+      const emi = mats.map((q) => (q.color ? { q, c: q.color.clone() } : null)).filter(Boolean);
+      pecas.push({ zona: chave, mesh: nm, pai, base, dir: prm.dir(), dist: prm.dist, passo: prm.passo, k: 0, emi });
+    });
+    if (!baldes.has('_resto')) m.visible = false;
+  });
+  const aplica = () => {
+    pecas.forEach((p) => {
+      const alvo = p.base.clone().addScaledVector(p.dir, p.dist * p.k);
+      p.mesh.position.copy(p.pai.worldToLocal(alvo));
+      /* as pecas mantem a cor original ao soltar */
+    });
+    try { mv[precisa](); } catch (e) {}
+  };
+  return {
+    total: pecas.length,
+    /* passo ativo -> as pecas daquele passo sobem para k=1 (suave); retorna se ainda esta animando */
+    anima(passo, veloc) {
+      let mexeu = false;
+      pecas.forEach((p) => { const alvo = p.passo === passo ? 1 : 0, d = alvo - p.k; if (Math.abs(d) > 0.002) { p.k += d * veloc; mexeu = true; } else if (p.k !== alvo) { p.k = alvo; mexeu = true; } });
+      if (mexeu) aplica();
+      return mexeu;
+    },
+    abertura() { return pecas.reduce((m, p) => Math.max(m, p.k), 0); }
+  };
+}
+
 /* ---------- giro do carro na rolagem ---------- */
 {
   const sec = $('#giro'), box = $('#ep-giro-carro'), lis = $$('#ep-giro-passos li');
   if (sec && box && lis.length) {
-    const PAS = [{ t: 25, p: 76, r: 105 }, { t: 90, p: 78, r: 100 }, { t: 98, p: 86, r: 70 }, { t: 180, p: 72, r: 105 }, { t: 215, p: 24, r: 125 }];
-    let mv = null, alvo = 0, atual = -1, raf = 0, visivel = false, ult = -1;
+    const PAS = [{ t: 28, p: 70, r: 112 }, { t: 62, p: 66, r: 118 }, { t: 72, p: 78, r: 108 }, { t: 152, p: 60, r: 114 }, { t: 205, p: 32, r: 122 }];
+    let mv = null, alvo = 0, atual = -1, raf = 0, visivel = false, ult = -1, off = 0, carroGiro = null, pecas = null, passoAtivo = 0, mexendo = false;
     const montar = async () => {
       if (mv) return;
-      const c = carros.find((x) => x.id === 'jeep-compass') || carros[0]; if (!c) return;
+      const c = carros.find((x) => x.id === 'fiat-argo') || carros.find((x) => x.id === 'jeep-compass') || carros[0]; if (!c) return;
+      off = { '+z': 0, '-z': 180, '+x': 90, '-x': -90 }[c.frente || '+z'] || 0; carroGiro = c;
       await customElements.whenDefined('model-viewer').catch(() => {});
       mv = document.createElement('model-viewer');
       mv.setAttribute('interaction-prompt', 'none'); mv.setAttribute('disable-zoom', ''); mv.setAttribute('disable-pan', ''); mv.setAttribute('shadow-intensity', '1.1'); mv.setAttribute('shadow-softness', '1');
@@ -323,6 +441,7 @@ $$('#ep-faq details').forEach((d) => {
       try { customElements.get('model-viewer').meshoptDecoderLocation = 'https://cdn.jsdelivr.net/npm/meshoptimizer@0.22.0/meshopt_decoder.js'; } catch (e) {}
       mv.poster = BASE + '/posters/poster-' + c.id + '.webp'; mv.src = BASE + '/assets/' + c.file;
       box.appendChild(mv);
+      mv.addEventListener('load', () => { try { pecas = prepararPecas(mv, carroGiro); } catch (e) { pecas = null; } mexe(); }, { once: true });
       quadro();
     };
     const progresso = () => { const r = sec.getBoundingClientRect(), tot = Math.max(1, sec.offsetHeight - innerHeight); return Math.min(1, Math.max(0, -(r.top - 62) / tot)); };
@@ -332,10 +451,11 @@ $$('#ep-faq details').forEach((d) => {
       alvo = progresso();
       atual = atual < 0 ? alvo : atual + (alvo - atual) * 0.14;
       const f = atual * (PAS.length - 1), i = Math.min(PAS.length - 2, Math.floor(f)), k = suave(f - i), a = PAS[i], b = PAS[i + 1];
-      if (mv) { try { mv.cameraOrbit = (a.t + (b.t - a.t) * k).toFixed(1) + 'deg ' + (a.p + (b.p - a.p) * k).toFixed(1) + 'deg ' + (a.r + (b.r - a.r) * k).toFixed(1) + '%'; mv.jumpCameraToGoal(); } catch (e) {} }
+      if (mv) { try { mv.cameraOrbit = (off + a.t + (b.t - a.t) * k).toFixed(1) + 'deg ' + (a.p + (b.p - a.p) * k).toFixed(1) + 'deg ' + ((a.r + (b.r - a.r) * k) * (1 + 0.28 * (pecas ? pecas.abertura() : 0))).toFixed(1) + '%'; mv.jumpCameraToGoal(); } catch (e) {} }
       const ativo = Math.min(PAS.length - 1, Math.round(f));
       if (ativo !== ult) { ult = ativo; lis.forEach((li, n) => li.classList.toggle('on', n === ativo)); track('ep_giro_passo', { passo: ativo }); }
-      if (visivel && Math.abs(alvo - atual) > 0.0004) raf = requestAnimationFrame(quadro);
+      passoAtivo = ativo; mexendo = pecas ? pecas.anima(passoAtivo, 0.1) : false;
+      if (visivel && (Math.abs(alvo - atual) > 0.0004 || mexendo)) raf = requestAnimationFrame(quadro);
     };
     const mexe = () => { if (!raf && visivel) raf = requestAnimationFrame(quadro); };
     if ('IntersectionObserver' in window) {
@@ -373,7 +493,16 @@ $$('#ep-faq details').forEach((d) => {
     try {
       const lista = await buscaProdutos(q);
       if (!lista.length) { grid.innerHTML = '<p class="ep-vvazio">Nenhum produto encontrado agora para "' + esc(q) + '". Veja todas as peças na loja.</p>'; return; }
-      grid.innerHTML = lista.map((p) => '<a class="ep-prod" href="' + esc(p.url) + '" data-termo="' + esc(q) + '">' + (p.img ? '<img loading="lazy" alt="' + esc(p.nome) + '" src="' + esc(p.img) + '">' : '') + '<div><b>' + esc(p.nome) + '</b><p>' + (p.de ? '<s>' + esc(p.de) + '</s>' : '') + '<span>' + esc(p.preco) + '</span></p></div></a>').join('');
+      grid.innerHTML = lista.map((p) => '<a class="ep-prod" href="' + esc(p.url) + '" data-termo="' + esc(q) + '">' + (p.img ? '<img loading="lazy" alt="' + esc(p.nome) + '" src="' + esc(p.img) + '" data-orig="' + esc(p.img.replace(/thumb_d+-d+-/, '')) + '">' : '') + '<div><b>' + esc(p.nome) + '</b><p>' + (p.de ? '<s>' + esc(p.de) + '</s>' : '') + '<span>' + esc(p.preco) + '</span></p></div></a>').join('');
+      /* miniaturas do tema sao criadas sob demanda: tenta o gerador do tema (createThumb) e, se falhar, usa a imagem original */
+      $$('.ep-prod img', grid).forEach((im) => {
+        im.addEventListener('error', () => {
+          if (!im.dataset.t1 && typeof window.createThumb === 'function') { im.dataset.t1 = '1'; try { window.createThumb(im); return; } catch (e) {} }
+          if (!im.dataset.t2 && im.dataset.orig && im.src !== im.dataset.orig) { im.dataset.t2 = '1'; im.src = im.dataset.orig; return; }
+          im.style.visibility = 'hidden';
+        });
+        if (im.complete && im.naturalWidth === 0) im.dispatchEvent(new Event('error'));
+      });
       if (A && !reduz) A.animate($$('.ep-prod', grid), { opacity: [0, 1], translateY: [20, 0], delay: A.stagger(60), duration: 600, ease: 'outExpo' });
     } catch (e) { grid.innerHTML = '<p class="ep-vvazio">Não foi possível carregar os produtos agora. <a href="/q?keywords=' + encodeURIComponent(q) + '">Ver na loja</a>.</p>'; }
   };
