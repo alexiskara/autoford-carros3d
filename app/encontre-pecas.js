@@ -378,12 +378,15 @@ $$('#ep-faq details').forEach((d) => {
     } catch (e) { grid.innerHTML = '<p class="ep-vvazio">Não foi possível carregar os produtos agora. <a href="/q?keywords=' + encodeURIComponent(q) + '">Ver na loja</a>.</p>'; }
   };
   if (sec && tabs) {
-    tabs.innerHTML = TERMOS.map((q, i) => '<button type="button" role="tab" data-q="' + q + '" aria-selected="' + (i === 0) + '">' + q + '</button>').join('');
     tabs.addEventListener('click', (ev) => { const b = ev.target.closest('button'); if (!b) return; track('ep_vitrine_aba', { termo: b.dataset.q }); mostra(b.dataset.q, b); });
     grid.addEventListener('click', (ev) => { const a = ev.target.closest('a.ep-prod'); if (a) track('ep_vitrine_produto', { termo: a.dataset.termo, url: a.getAttribute('href') }); });
     const primeira = async () => {
-      try { const l = await buscaProdutos(TERMOS[0]); if (!l.length) { sec.hidden = true; return; } } catch (e) { sec.hidden = true; return; }
-      sec.hidden = false; mostra(TERMOS[0], tabs.firstElementChild);
+      /* testa todos os termos e mostra so as abas que têm produto */
+      const res = await Promise.all(TERMOS.map((q) => buscaProdutos(q).then((l) => l.length).catch(() => 0)));
+      const com = TERMOS.filter((q, i) => res[i] > 0);
+      if (!com.length) { sec.hidden = true; return; }
+      tabs.innerHTML = com.map((q, i) => '<button type="button" role="tab" data-q="' + q + '" aria-selected="' + (i === 0) + '">' + q + '</button>').join('');
+      sec.hidden = false; mostra(com[0], tabs.firstElementChild);
     };
     if ('IntersectionObserver' in window) { const io = new IntersectionObserver((es) => { if (es[0].isIntersecting) { io.disconnect(); primeira(); } }, { rootMargin: '500px 0px' }); io.observe(sec.hidden ? $('#modelos') : sec); } else primeira();
   }
