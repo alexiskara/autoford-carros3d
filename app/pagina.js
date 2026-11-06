@@ -285,7 +285,7 @@ const ILHA = {
 const LABEL_ZONA = { 'parachoque-d': 'Para-choque dianteiro', 'parachoque-t': 'Para-choque traseiro', 'portas': 'Portas', 'capo': 'Capô', 'teto': 'Teto', 'parabrisa': 'Parabrisa', 'portamalas': 'Porta-malas', 'rodas': 'Rodas', 'retrovisor': 'Retrovisores', 'farol': 'Faróis', 'lanterna': 'Lanternas' };
 function simboloMV(nome) { return Object.getOwnPropertySymbols(mv).find((s) => s.description === nome); }
 function renderizar() { const s = simboloMV('needsRender'); if (s && typeof mv[s] === 'function') { try { mv[s](); } catch (e) {} } }
-const VIDRO = { 'capo': 'excluir', 'teto': 'excluir', 'portamalas': 'excluir', 'parachoque-d': 'excluir', 'parachoque-t': 'excluir', 'parabrisa': 'so', 'portas': 'incluir' };
+const VIDRO = { 'capo': 'excluir', 'teto': 'excluir', 'portamalas': 'excluir', 'parachoque-d': 'incluir', 'parachoque-t': 'incluir', 'parabrisa': 'so', 'portas': 'incluir' };
 function ehVidro(m) {
   const mt = Array.isArray(m.material) ? m.material[0] : m.material; if (!mt) return false;
   const nome = (mt.name || '') + ' ' + (m.name || '');
@@ -386,7 +386,9 @@ const MASCARA = {
   'teto': { todos: true, modo: 0, u: [-0.52, 0.26], w: 0.8, g: [0.52, 1.2], dir: [0, 1, 0], lim: -0.55, raio: 0.06 },
   'portamalas': { modo: 0, u: [-0.8, -0.26], w: 0.72, g: [0.44, 1.2], dir: [-0.45, 0.9, 0], lim: 0.55, raio: 0.05 },
   'parabrisa': { modo: 0, u: [0.02, 0.5], w: 0.78, g: [0.52, 1.2], dir: [0.55, 0.83, 0], lim: 0.62, raio: 0.05 },
-  'portas': { modo: 1, u: [-0.34, 0.3], v: [0.3, 0.92], g: [0.45, 1.4], dir: [0, 0, 1], lim: 0.3, raio: 0.04 }
+  'portas': { modo: 1, u: [-0.34, 0.3], v: [0.3, 0.92], g: [0.45, 1.4], dir: [0, 0, 1], lim: 0.3, raio: 0.04 },
+  'parachoque-d': { real: true, todos: true, modo: 0, u: [0.8, 1.05], w: 1.02, g: [0, 0.4], dir: [1, 0, 0], lim: -0.25, raio: 0.04 },
+  'parachoque-t': { real: true, todos: true, modo: 0, u: [-1.05, -0.8], w: 1.02, g: [0, 0.4], dir: [-1, 0, 0], lim: -0.25, raio: 0.04 }
 };
 /* uniformes compartilhados: o programa do shader e reaproveitado entre zonas, entao os objetos precisam ser os mesmos */
 const MASC_UN = { uF: { value: [0, 0, 1] }, uS: { value: [1, 0, 0] }, uCen: { value: [0, 0, 0] }, uDim: { value: [1, 1, 1, 0] }, uBox: { value: [0, 0, 1, 1] }, uPar: { value: [0, 0, 0, 1] }, uN: { value: [0, 1, 0, 0.5] }, uSt: { value: [0, 1] } };
@@ -428,6 +430,7 @@ function destacarMascara(z) {
   const f = atual.frente || '+z', ex = f[1] === 'x', sg = f[0] === '+' ? 1 : -1;
   const mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9];
   lista.forEach((m) => {
+    if (cfg.real && !m.visible) return; /* ignora o plano de sombra do model-viewer */
     m.updateWorldMatrix(true, false);
     const p = m.geometry.attributes.position, e = m.matrixWorld.elements;
     for (let i = 0; i < p.count; i += 3) {
@@ -469,12 +472,27 @@ function destacarMascara(z) {
   });
   if (!alguma) { desfazerExplosao(); return false; }
   explo.mascara = un; explo.mascMats = mm; explo.ativa = true; explo.zona = z;
+  /* zonas com real:true acompanham o deslocamento do modelo causado pelo cameraTarget (mascara colada no carro) */
+  if (cfg.real && cfg.seguir) {
+    const ref = lista[0], er0 = ref.matrixWorld.elements.slice(12, 15), C0 = C.slice(), mn0 = mn[1];
+    const seguir = () => {
+      if (explo.mascara !== un) return;
+      try {
+        ref.updateWorldMatrix(true, false); const e = ref.matrixWorld.elements;
+        const dx = e[12] - er0[0], dy = e[13] - er0[1], dz = e[14] - er0[2];
+        un.uCen.value = [C0[0] + dx, C0[1] + dy, C0[2] + dz]; un.uDim.value = [un.uDim.value[0], un.uDim.value[1], un.uDim.value[2], mn0 + dy];
+        mm.forEach((x) => { x.uniformsNeedUpdate = true; }); renderizar();
+      } catch (er) {}
+      requestAnimationFrame(seguir);
+    };
+    requestAnimationFrame(seguir);
+  }
   const cM = mv.getBoundingBoxCenter(), dM = mv.getDimensions();
   const mundoMod = (p) => [cM.x + (p[0] - C[0]) * (dM.x / (D[0] || 1)), cM.y + (p[1] - C[1]) * (dM.y / (D[1] || 1)), cM.z + (p[2] - C[2]) * (dM.z / (D[2] || 1))];
   const cx = ex ? C[0] + sg * c1 : C[0], cz = ex ? C[2] : C[2] + sg * c1;
   const cy = cfg.modo === 0 ? mn[1] + (cfg.g[0] + 0.08) * H : mn[1] + c2;
   const topo = mundoMod([cx, cy + 0.08 * H, cz]);
-  try { mv.cameraTarget = topo[0] + 'm ' + (topo[1] - 0.08 * H * (dM.y / (D[1] || 1))) + 'm ' + topo[2] + 'm'; } catch (er) {}
+  if (!cfg.real) { try { mv.cameraTarget = topo[0] + 'm ' + (topo[1] - 0.08 * H * (dM.y / (D[1] || 1))) + 'm ' + topo[2] + 'm'; } catch (er) {} } /* real: mantem o alvo automatico, sem deslocar o modelo */
   explo.pulso = numero(0.85, 1.0, { duration: 1.1, repeat: 3, repeatType: 'reverse', ease: 'easeInOut' }, (v) => { un.uSt.value = [1, v]; mm.forEach((x) => { x.uniformsNeedUpdate = true; }); renderizar(); });
   const et = mv.querySelector('.c3d-etq');
   if (et) {
