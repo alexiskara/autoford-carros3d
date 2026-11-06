@@ -302,6 +302,8 @@ function numero(de, para, opc, fn) {
   const passo = (agora) => { if (parado) return; const k = Math.min(1, (agora - t0) / dur), e = 1 - Math.pow(1 - k, 3); fn(de + (para - de) * e); if (k < 1) requestAnimationFrame(passo); };
   requestAnimationFrame(passo); return { stop() { parado = true; } };
 }
+/* posicao do no 'Target' do model-viewer: mundo = modelo + Target.position (o cameraTarget apenas translada o modelo) */
+function posAlvo() { try { const sy = Object.getOwnPropertySymbols(mv).find((s) => s.description === 'scene'), tg = mv[sy].getObjectByName('Target'); if (tg) return tg.position; } catch (e) {} return { x: 0, y: 0, z: 0 }; }
 function desfazerExplosao() {
   explo.zonaPend = null;
   if (explo.ctl) { try { explo.ctl.stop(); } catch (e) {} explo.ctl = null; }
@@ -388,6 +390,8 @@ const MASCARA = {
   'portamalas': { modo: 0, u: [-0.8, -0.26], w: 0.72, g: [0.44, 1.2], dir: [-0.45, 0.9, 0], lim: 0.55, raio: 0.05 },
   'parabrisa': { modo: 0, u: [0.02, 0.5], w: 0.78, g: [0.52, 1.2], dir: [0.55, 0.83, 0], lim: 0.62, raio: 0.05 },
   'portas': { modo: 1, u: [-0.34, 0.3], v: [0.3, 0.92], g: [0.45, 1.4], dir: [0, 0, 1], lim: 0.3, raio: 0.04 },
+  /* rodas (fallback quando as ilhas nao sao achadas): dois circulos laterais nos eixos */
+  'rodas': { real: true, todos: true, modo: 2, u: [0.6, 0.6], v: [0, 0.3], g: [0.45, 1.8], eixos: [0.62, -0.62], rad: 0.165, dir: [0, 0, 1], lim: -0.15, raio: 0.02 },
   'parachoque-d': { real: true, todos: true, modo: 0, u: [0.88, 1.05], w: 1.02, g: [0, 0.36], dir: [1, 0, 0], lim: -0.45, raio: 0.04 },
   'parachoque-t': { real: true, todos: true, modo: 0, u: [-1.05, -0.88], w: 1.02, g: [0, 0.36], dir: [-1, 0, 0], lim: -0.45, raio: 0.04 }
 };
@@ -417,6 +421,7 @@ function mascararMaterial(mt, un) {
         'float gA = uPar.x < 0.5 ? V : abs(Wl); float bB = uPar.x < 0.5 ? abs(Wl) : V;\n' +
         'vec2 q2 = abs(vec2(U, bB) - uBox.xy) - uBox.zw + vec2(uPar.y);\n' +
         'float sd = length(max(q2, 0.0)) + min(max(q2.x, q2.y), 0.0) - uPar.y;\n' +
+        'if (uPar.x > 1.5) { sd = min(length(vec2(U - uBox.x, V - uBox.z)), length(vec2(U - uBox.y, V - uBox.z))) - uBox.w; gA = abs(Wl); }\n' +
         'float mk = (1.0 - smoothstep(-0.004, 0.004, sd)) * step(uPar.z, gA) * step(gA, uPar.w) * step(abs(uN.w), uN.w < 0.0 ? abs(dot(nC, uN.xyz)) : dot(nC, uN.xyz)) * uSt.x * uOn;\n' +
         'float lm = dot(gl_FragColor.rgb, vec3(0.33));\n' +
         'vec3 oc = vec3(1.0, 0.36, 0.0) * (0.78 + 0.5 * lm) * uSt.y;\n' +
@@ -427,7 +432,7 @@ function mascararMaterial(mt, un) {
   mt.customProgramCacheKey = () => chave; mt.needsUpdate = true;
 }
 function destacarMascara(z, passo2) {
-  const cfg = MASCARA[z], lista = malhas(); if (!cfg || !lista.length || !atual || !EXPL[z]) return false;
+  const cfg = (atual && MASCARA_ESPECIAL[atual.id] && MASCARA_ESPECIAL[atual.id][z]) || MASCARA[z], lista = malhas(); if (!cfg || !lista.length || !atual || !EXPL[z]) return false;
   const f = atual.frente || '+z', ex = f[1] === 'x', sg = f[0] === '+' ? 1 : -1;
   const mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9], amo = [[], [], []];
   lista.forEach((m) => {
@@ -452,6 +457,7 @@ function destacarMascara(z, passo2) {
   const temVidro = lista.some((m) => ehVidro(m));
   const usa = (m) => {
     const mt = Array.isArray(m.material) ? m.material[0] : m.material; if (!mt) return false;
+    if (cfg.tudo) return true;
     const v = ehVidro(m);
     if (regra === 'so') return temVidro ? v : true; /* modelo sem vidro separado: a mascara de forma ja restringe a area */
     if (v) return regra === 'incluir';
@@ -472,6 +478,7 @@ function destacarMascara(z, passo2) {
     setTimeout(() => { if (explo.zonaPend !== z) return; explo.zonaPend = null; try { if (!destacarMascara(z, true)) desfazerExplosao(); } catch (er) { desfazerExplosao(); } }, 350);
     return true;
   }
+  if (cfg.modo === 2) un.uBox.value = [cfg.eixos[0] * mh, cfg.eixos[1] * mh, cfg.rad * mh, cfg.rad * mh];
   desfazerExplosao();
   let alguma = false; const mm = [];
   lista.forEach((m) => {
@@ -485,12 +492,12 @@ function destacarMascara(z, passo2) {
   if (!alguma) { desfazerExplosao(); return false; }
   explo.mascara = un; explo.mascMats = mm; explo.ativa = true; explo.zona = z;
   const cM = mv.getBoundingBoxCenter(), dM = mv.getDimensions();
-  const mundoMod = (p) => [cM.x + (p[0] - C[0]) * (dM.x / (D[0] || 1)), cM.y + (p[1] - C[1]) * (dM.y / (D[1] || 1)), cM.z + (p[2] - C[2]) * (dM.z / (D[2] || 1))];
+  const mundoMod = (p) => { const tp = posAlvo(); return [p[0] - tp.x, p[1] - tp.y, p[2] - tp.z]; };
   const cx = ex ? C[0] + sg * c1 : C[0], cz = ex ? C[2] : C[2] + sg * c1;
   const cy = cfg.modo === 0 ? mn[1] + (cfg.g[0] + 0.08) * H : mn[1] + c2;
   let topo = mundoMod([cx, cy + 0.08 * H, cz]);
   if (cfg.real) { try { const sy = Object.getOwnPropertySymbols(mv).find((s) => s.description === 'scene'), tg = mv[sy].getObjectByName('Target'); topo = [cx - tg.position.x, mn[1] + 0.3 * H - tg.position.y, cz - tg.position.z]; } catch (er) {} }
-  if (!cfg.real) { try { mv.cameraTarget = topo[0] + 'm ' + (topo[1] - 0.08 * H * (dM.y / (D[1] || 1))) + 'm ' + topo[2] + 'm'; } catch (er) {} }
+  if (!cfg.real) { try { mv.cameraTarget = topo[0] + 'm ' + (topo[1] - 0.08 * H) + 'm ' + topo[2] + 'm'; } catch (er) {} }
   explo.pulso = numero(0.85, 1.0, { duration: 1.1, repeat: 3, repeatType: 'reverse', ease: 'easeInOut' }, (v) => { un.uSt.value = [1, v]; mm.forEach((x) => { x.uniformsNeedUpdate = true; }); renderizar(); });
   const et = mv.querySelector('.c3d-etq');
   if (et) {
@@ -502,8 +509,28 @@ function destacarMascara(z, passo2) {
   renderizar();
   return true;
 }
+const RODAS_MASCARA = new Set(['toyota-hilux', 'fiat-strada']);
+/* regioes especificas por modelo (quando as pecas do modelo 3D nao sao separaveis) */
+const MASCARA_ESPECIAL = {
+  'toyota-hilux': {
+    'farol': { real: true, todos: true, modo: 1, u: [0.84, 1.06], v: [0.4, 0.66], g: [0.3, 0.86], dir: [1, 0, 0], lim: -0.3, raio: 0.03 }
+  },
+  'chevrolet-tracker': {
+    'farol': { real: true, todos: true, modo: 1, u: [0.86, 1.06], v: [0.38, 0.66], g: [0.3, 0.9], dir: [1, 0, 0], lim: -0.3, raio: 0.03 },
+    'lanterna': { real: true, todos: true, modo: 1, u: [-1.06, -0.88], v: [0.4, 0.7], g: [0.35, 0.92], dir: [-1, 0, 0], lim: -0.3, raio: 0.03 },
+    'retrovisor': { real: true, todos: true, modo: 1, u: [0.1, 0.3], v: [0.52, 0.74], g: [0.84, 1.3], dir: [0, 0, 1], lim: -0.3, raio: 0.03 }
+  },
+  'fiat-strada': {
+    'farol': { real: true, todos: true, modo: 1, u: [0.84, 1.06], v: [0.36, 0.64], g: [0.3, 0.9], dir: [1, 0, 0], lim: -0.3, raio: 0.03 },
+    'lanterna': { real: true, todos: true, modo: 1, u: [-1.06, -0.86], v: [0.34, 0.66], g: [0.45, 0.95], dir: [-1, 0, 0], lim: -0.3, raio: 0.03 },
+    'parabrisa': { real: true, todos: true, tudo: true, modo: 0, u: [-0.05, 0.5], w: 0.8, g: [0.4, 1.2], dir: [0.55, 0.83, 0], lim: 0.92, raio: 0.05 },
+    'retrovisor': { real: true, todos: true, modo: 1, u: [0.12, 0.3], v: [0.52, 0.74], g: [0.82, 1.3], dir: [0, 0, 1], lim: -0.3, raio: 0.03 }
+  }
+};
 function destacarZona(z, modo) {
-  if (MASCARA[z] && !modo) { try { if (destacarMascara(z)) return true; } catch (er) { desfazerExplosao(); } }
+  if (z === 'rodas' && !modo && atual && RODAS_MASCARA.has(atual.id)) modo = 'mascara';
+  if (!modo && atual && MASCARA_ESPECIAL[atual.id] && MASCARA_ESPECIAL[atual.id][z]) { try { if (destacarMascara(z)) return true; } catch (er) { desfazerExplosao(); } } /* modelos onde as pecas das rodas nao sao separaveis */
+  if (MASCARA[z] && (z === 'rodas' ? modo === 'mascara' : !modo)) { try { if (destacarMascara(z)) return true; } catch (er) { desfazerExplosao(); } }
   desfazerExplosao();
   const lista = malhas(); if (!lista.length || !atual || !EXPL[z]) return false;
   const f = atual.frente || '+z', ex = f[1] === 'x', sg = f[0] === '+' ? 1 : -1;
@@ -647,7 +674,7 @@ function destacarZona(z, modo) {
       for (let q = 0; q < l.tris.length; q++) { const vi = tv(l.tris[q], 0); somaC[0] += w[vi * 3]; somaC[1] += w[vi * 3 + 1]; somaC[2] += w[vi * 3 + 2]; nC++; }
     });
   });
-  if (z === 'rodas' && !modo && chavesRodas.size < 4) { desfazerExplosao(); return destacarZona(z, 'circulo'); }
+  if (z === 'rodas' && !modo && chavesRodas.size < 4) { desfazerExplosao(); return destacarZona(z, 'mascara'); }
   if (!grupos.length || nC < 12) { desfazerExplosao(); if (!modo && ILHA[z] && PELE[z]) return destacarZona(z, 'pele'); if (modo !== 'caixa' && REGIAO[z]) return destacarZona(z, 'caixa'); return false; }
   const e = EXPL[z];
   const limitesMundo = (cfg, lado) => {
@@ -677,7 +704,7 @@ function destacarZona(z, modo) {
   explo.ativa = true; explo.zona = z;
   const cM = mv.getBoundingBoxCenter(), dM = mv.getDimensions();
   const cen = [somaC[0] / nC, somaC[1] / nC, somaC[2] / nC];
-  const paraModelo = (p) => [cM.x + (p[0] - C.x) * (dM.x / (D.x || 1)), cM.y + (p[1] - C.y) * (dM.y / (D.y || 1)), cM.z + (p[2] - C.z) * (dM.z / (D.z || 1))];
+  const paraModelo = (p) => { const tp = posAlvo(); return [p[0] - tp.x, p[1] - tp.y, p[2] - tp.z]; };
   const mod = paraModelo(cen), ow = explo.offMundo;
   const alvo = [(mod[0] * 0.7 + cM.x * 0.3) + 0.4 * ow[0] * (dM.x / (D.x || 1)), (mod[1] * 0.7 + cM.y * 0.3) + 0.4 * ow[1] * (dM.y / (D.y || 1)), (mod[2] * 0.7 + cM.z * 0.3) + 0.4 * ow[2] * (dM.z / (D.z || 1))];
   try { mv.cameraTarget = alvo[0] + 'm ' + alvo[1] + 'm ' + alvo[2] + 'm'; } catch (er) {}
