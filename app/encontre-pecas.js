@@ -98,7 +98,7 @@ function inclinar(el) {
     const mv = document.createElement('model-viewer');
     mv.setAttribute('camera-controls', ''); mv.setAttribute('auto-rotate', ''); mv.setAttribute('auto-rotate-delay', '0'); mv.setAttribute('rotation-per-second', '18deg');
     mv.setAttribute('interaction-prompt', 'none'); mv.setAttribute('disable-zoom', ''); mv.setAttribute('shadow-intensity', '1.2'); mv.setAttribute('shadow-softness', '1');
-    mv.setAttribute('exposure', '1.1'); mv.setAttribute('environment-image', 'neutral'); mv.setAttribute('camera-orbit', '35deg 76deg auto'); mv.setAttribute('touch-action', 'pan-y');
+    mv.setAttribute('exposure', '1.1'); mv.setAttribute('environment-image', 'neutral'); mv.setAttribute('camera-orbit', '35deg 76deg 118%'); mv.setAttribute('touch-action', 'pan-y');
     mv.setAttribute('alt', 'Carro em 3D que gira sozinho'); mv.setAttribute('reveal', 'auto');
     try { customElements.get('model-viewer').meshoptDecoderLocation = 'https://cdn.jsdelivr.net/npm/meshoptimizer@0.22.0/meshopt_decoder.js'; } catch (e) {}
     mv.poster = BASE + '/posters/poster-' + c.id + '.webp'; mv.src = BASE + '/assets/' + c.file;
@@ -219,3 +219,16 @@ $$('#ep-faq details').forEach((d) => {
     else { d.open = true; const alt = resp.scrollHeight; M.animate(resp, { height: ['0px', alt + 'px'] }, { duration: 0.4, ease: [0.22, 1, 0.36, 1] }).finished.then(() => { resp.style.height = ''; }); }
   });
 });
+
+/* ---------- menu fixo: barra de progresso (Motion) e seção ativa ---------- */
+{
+  const barra = $('#ep-prog');
+  if (M && barra && !reduz && M.scroll) { try { M.scroll(M.animate(barra, { scaleX: [0, 1] }, { ease: 'linear' })); } catch (e) {} }
+  else if (barra) { addEventListener('scroll', () => { const h = document.documentElement; barra.style.transform = 'scaleX(' + Math.min(1, h.scrollTop / Math.max(1, h.scrollHeight - h.clientHeight)) + ')'; }, { passive: true }); }
+  const links = $$('.ep-nav nav a');
+  const alvos = links.map((a) => $(a.getAttribute('href'))).filter(Boolean);
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) links.forEach((a) => a.classList.toggle('on', a.getAttribute('href') === '#' + e.target.id)); }), { rootMargin: '-45% 0px -50% 0px' });
+    alvos.forEach((s) => io.observe(s));
+  }
+}
