@@ -10,8 +10,25 @@ if (!raiz) throw new Error('landing ausente');
 const reduz = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 let A = null, M = null;
-try { A = await import('https://cdn.jsdelivr.net/npm/animejs@4.3.6/dist/bundles/anime.esm.min.js'); } catch (e) { A = null; }
+try { A = await import('https://cdn.jsdelivr.net/npm/animejs@4.5.0/dist/bundles/anime.esm.min.js'); } catch (e) { A = null; }
 try { M = await import('https://cdn.jsdelivr.net/npm/motion@12.43.0/+esm'); } catch (e) { M = null; }
+
+/* ---------- visualizador 3D embutido (carregado sob demanda) ---------- */
+const URL_VIEWER = new URL('./pagina.js', import.meta.url).href;
+let viewerP = null;
+function carregarViewer() {
+  if (viewerP) return viewerP;
+  viewerP = import(URL_VIEWER).then(() => new Promise((ok) => { if (window.__c3dAbrir) ok(); else window.addEventListener('c3d:pronto', () => ok(), { once: true }); })).catch((e) => { viewerP = null; throw e; });
+  return viewerP;
+}
+function rolarAoViewer() { const s = $('#visualizador'); if (s) s.scrollIntoView({ behavior: reduz ? 'auto' : 'smooth', block: 'start' }); }
+async function abrirNoViewer(d, rolar = true) {
+  if (rolar) rolarAoViewer();
+  try {
+    await carregarViewer(); window.__c3dAbrir(d || {});
+    if (rolar && d && (d.carro || d.parte)) setTimeout(() => { const p = $('#c3d-palco'); if (p) p.scrollIntoView({ behavior: reduz ? 'auto' : 'smooth', block: 'center' }); }, 450);
+  } catch (e) { location.href = '/3d-carros/' + (d && d.carro ? '?carro=' + d.carro : ''); }
+}
 
 const semAcento = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '');
 const norm = (t) => semAcento(t).toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -32,14 +49,14 @@ const TIPO = { hatch: 'Hatch', suv: 'SUV', pickup: 'Picape' };
 /* ---------- busca ---------- */
 {
   $('#ep-lista-carros').innerHTML = carros.map((c) => '<option value="' + nomeCarro(c) + '">').join('');
-  const abrir = (c, ano) => { const u = new URL(VISUALIZADOR, location.origin); if (c) u.searchParams.set('carro', c.id); if (ano) u.searchParams.set('ano', ano); location.href = u.pathname + u.search; };
+  const abrir = (c, ano) => abrirNoViewer({ carro: c ? c.id : undefined, ano: ano || undefined });
   $('#ep-busca').addEventListener('submit', (ev) => {
     ev.preventDefault();
     const txt = $('#ep-q').value.trim();
     const am = txt.match(/\b(?:19|20)\d{2}\b/), q = norm(txt.replace(/\b(?:19|20)\d{2}\b/, ''));
     const c = q ? carros.find((x) => norm(nomeCarro(x)).includes(q) || q.includes(norm(x.model))) : null;
     explodir($('#ep-go'));
-    setTimeout(() => abrir(c, am ? am[0] : ''), reduz ? 0 : 380);
+    setTimeout(() => abrir(c, am ? am[0] : ''), reduz ? 0 : 200);
   });
 }
 
@@ -50,12 +67,12 @@ const PARTES = [
   ['retrovisor', 'Retrovisores', 'Espelhos laterais'], ['rodas', 'Rodas', 'Aros, calotas e rodas'], ['portamalas', 'Porta-malas', 'Tampa traseira'],
   ['lanterna', 'Lanternas', 'Iluminação traseira'], ['parachoque-t', 'Para-choque traseiro', 'Proteção e acabamento de trás']
 ];
-$('#ep-partes').innerHTML = PARTES.map((p, i) => '<a class="ep-pc" data-rv href="' + VISUALIZADOR + '?parte=' + p[0] + '"><span>' + String(i + 1).padStart(2, '0') + '</span><b>' + p[1] + '</b><small>' + p[2] + '</small><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M8 7h9v9"/></svg></a>').join('');
+$('#ep-partes').innerHTML = PARTES.map((p, i) => '<a class="ep-pc" data-rv data-parte="' + p[0] + '" href="' + VISUALIZADOR + '?parte=' + p[0] + '"><span>' + String(i + 1).padStart(2, '0') + '</span><b>' + p[1] + '</b><small>' + p[2] + '</small><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M8 7h9v9"/></svg></a>').join('');
 
 /* ---------- modelos ---------- */
 function montarGrade(filtro) {
   const lista = carros.filter((c) => filtro === 'todos' || c.category === filtro);
-  $('#ep-grade').innerHTML = lista.map((c) => '<a class="ep-mc" href="' + VISUALIZADOR + '?carro=' + c.id + '"><img loading="lazy" alt="' + nomeCarro(c) + '" src="' + BASE + '/posters/poster-' + c.id + '.webp"><div><span><small>' + c.brand + '</small><b>' + c.model + '</b></span><em>Abrir 3D →</em></div></a>').join('');
+  $('#ep-grade').innerHTML = lista.map((c) => '<a class="ep-mc" data-carro="' + c.id + '" href="' + VISUALIZADOR + '?carro=' + c.id + '"><img loading="lazy" alt="' + nomeCarro(c) + '" src="' + BASE + '/posters/poster-' + c.id + '.webp"><div><span><small>' + c.brand + '</small><b>' + c.model + '</b></span><em>Abrir 3D →</em></div></a>').join('');
   const cards = $$('.ep-mc');
   if (A && !reduz) A.animate(cards, { opacity: [0, 1], translateY: [24, 0], scale: [0.96, 1], delay: A.stagger(45), duration: 650, ease: 'outExpo' });
   cards.forEach(inclinar);
@@ -172,7 +189,14 @@ function explodir(btn) {
   for (let i = 0; i < n; i++) { const p = document.createElement('i'); p.className = 'ep-part'; p.style.cssText = 'position:fixed;left:' + (r.left + r.width / 2) + 'px;top:' + (r.top + r.height / 2) + 'px;width:6px;height:6px;border-radius:50%;pointer-events:none;z-index:99999;background:' + (i % 2 ? '#ff7a3d' : '#7aa5ff'); pai.appendChild(p); ps.push(p); }
   A.animate(ps, { translateX: () => (Math.random() - 0.5) * 220, translateY: () => (Math.random() - 0.7) * 180, scale: [1, 0], opacity: [1, 0], duration: 760, delay: A.stagger(8), ease: 'outExpo', onComplete: () => ps.forEach((p) => p.remove()) });
 }
-$('#ep-cta').addEventListener('click', (ev) => { if (reduz || !A) return; ev.preventDefault(); const h = ev.currentTarget.href; explodir(ev.currentTarget); setTimeout(() => { location.href = h; }, 380); });
+/* cliques em [data-abrir], [data-parte] e [data-carro]: abrem no visualizador embutido */
+raiz.addEventListener('click', (ev) => {
+  const el = ev.target.closest && ev.target.closest('[data-abrir],[data-parte],[data-carro]'); if (!el) return;
+  if (ev.defaultPrevented || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.button) return;
+  ev.preventDefault();
+  if (el.id === 'ep-cta' || el.hasAttribute('data-abrir')) explodir(el);
+  abrirNoViewer({ carro: el.dataset.carro, parte: el.dataset.parte });
+});
 
 /* ---------- botão magnético (Motion) ---------- */
 if (M && !reduz && matchMedia('(hover:hover)').matches) {
@@ -231,4 +255,16 @@ $$('#ep-faq details').forEach((d) => {
     const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) links.forEach((a) => a.classList.toggle('on', a.getAttribute('href') === '#' + e.target.id)); }), { rootMargin: '-45% 0px -50% 0px' });
     alvos.forEach((s) => io.observe(s));
   }
+}
+
+/* ---------- visualizador: carrega perto da tela, esconde a gaveta fora dela, abre links antigos ---------- */
+{
+  const sec = $('#visualizador');
+  if ('IntersectionObserver' in window && sec) {
+    new IntersectionObserver((es) => { if (es[0].isIntersecting) carregarViewer().catch(() => {}); }, { rootMargin: '700px 0px' }).observe(sec);
+    const marca = () => { const c = $('.c3d'); if (!c) { setTimeout(marca, 800); return; } new IntersectionObserver((es) => c.classList.toggle('ep-fora', !es[0].isIntersecting), { threshold: 0.05 }).observe(c); };
+    marca();
+  } else carregarViewer().catch(() => {});
+  /* links antigos de /3d-carros/?carro=...&parte=... agora apontam para esta pagina */
+  if (/[?&](carro|parte)=/.test(location.search)) setTimeout(rolarAoViewer, 900);
 }

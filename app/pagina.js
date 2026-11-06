@@ -1079,4 +1079,14 @@ const pAno = prm.get('ano'); if (pAno && /^\d{4}$/.test(pAno)) { ano = pAno; set
 const inicial = carros.find((c) => c.id === prm.get('carro')) || carros.find((c) => c.id === ler('c3d_carro')) || carros[0];
 abrir(inicial);
 const pParte = prm.get('parte'); if (pParte && ZONAS[pParte]) escolher(pParte, true);
+/* Gancho para paginas que embutem o visualizador (ex.: landing Encontre pecas): window.dispatchEvent(new CustomEvent('c3d:abrir', { detail: { carro, ano, parte } })) */
+window.__c3dAbrir = (d) => {
+  d = d || {};
+  const c = d.carro ? carros.find((x) => x.id === d.carro) : null;
+  if (d.ano && /^\d{4}$/.test(String(d.ano))) { ano = String(d.ano); setAnoSel(); }
+  if (c && (!atual || atual.id !== c.id)) abrir(c);
+  if (d.parte && ZONAS[d.parte]) setTimeout(() => escolher(d.parte, true), c ? 350 : 0);
+};
+window.addEventListener('c3d:abrir', (ev) => window.__c3dAbrir(ev.detail));
+window.dispatchEvent(new Event('c3d:pronto'));
 
