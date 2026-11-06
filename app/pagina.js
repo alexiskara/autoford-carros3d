@@ -815,9 +815,11 @@ function etiquetaEntra(et) {
 }
 /* para o giro e devolve o carro ao angulo original: o auto-rotate gira o modelo, nao a camera */
 function pararRotacao() { mv.removeAttribute('auto-rotate'); try { mv.resetTurntableRotation(0); } catch (er) {} $('c3d-gira').setAttribute('aria-pressed', 'false'); }
+/* angulos de camera especificos por modelo (grau lateral a partir da frente, elevacao, distancia %) */
+const CAM_ESPECIAL = { 'toyota-hilux': { 'farol': [0, 80, 62] } };
 function focarZona(z) {
   pararRotacao();
-  const Z = ZONAS[z]; mv.cameraOrbit = vista(Z.cam[0], Z.cam[1], Z.cam[2]);
+  const Z = ZONAS[z], cam = (atual && CAM_ESPECIAL[atual.id] && CAM_ESPECIAL[atual.id][z]) || Z.cam; mv.cameraOrbit = vista(cam[0], cam[1], cam[2]);
   if (!EXPL[z]) { desfazerExplosao(); return; }
   setTimeout(() => { try { destacarZona(z); } catch (er) { desfazerExplosao(); } }, 60);
 }
