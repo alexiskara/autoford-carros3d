@@ -30,6 +30,13 @@ async function abrirNoViewer(d, rolar = true) {
   } catch (e) { location.href = '/3d-carros/' + (d && d.carro ? '?carro=' + d.carro : ''); }
 }
 
+function track(nome, dados) {
+  try {
+    const d = Object.assign({ event: nome }, dados || {});
+    (window.dataLayer = window.dataLayer || []).push(d);
+    if (typeof window.gtag === 'function') window.gtag('event', nome, dados || {});
+  } catch (e) {}
+}
 const semAcento = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '');
 const norm = (t) => semAcento(t).toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -120,6 +127,29 @@ function inclinar(el) {
     try { customElements.get('model-viewer').meshoptDecoderLocation = 'https://cdn.jsdelivr.net/npm/meshoptimizer@0.22.0/meshopt_decoder.js'; } catch (e) {}
     mv.poster = BASE + '/posters/poster-' + c.id + '.webp'; mv.src = BASE + '/assets/' + c.file;
     alvo.prepend(mv);
+    mv.addEventListener('load', () => {
+      try {
+        const cen = mv.getBoundingBoxCenter(), dim = mv.getDimensions();
+        /* posicoes medidas na superficie do modelo (raio a partir da tela), em fracao do tamanho do carro; recuadas 4 cm para fora da lataria */
+        const ponto = (nome, fx, fy, fz, n, rotulo, parte) => {
+          const b = document.createElement('button'); b.type = 'button'; b.slot = 'hotspot-' + nome; b.className = 'ep-hs'; b.dataset.parte = parte;
+          const x = cen.x + fx * dim.x + n[0] * 0.04, y = cen.y + fy * dim.y + n[1] * 0.04, z = cen.z + fz * dim.z + n[2] * 0.04;
+          b.setAttribute('data-position', x + 'm ' + y + 'm ' + z + 'm'); b.setAttribute('data-normal', n.join(' '));
+          b.innerHTML = '<i></i>' + rotulo; mv.appendChild(b);
+        };
+        ponto('capo', 0, 0.135, 0.294, [0, 1, 0.1], 'Capô', 'capo');
+        ponto('farol', 0.349, 0.003, 0.428, [0.76, 0.32, 0.57], 'Faróis', 'farol');
+        ponto('roda', 0.416, -0.274, 0.287, [1, 0, 0.3], 'Rodas', 'rodas');
+        /* visibilidade pelo angulo: o hotspot so aparece quando a superficie dele esta voltada para a camera (o model-viewer nao marca isso aqui) */
+        const hs = [...mv.querySelectorAll('.ep-hs')];
+        const normais = hs.map((h) => (h.getAttribute('data-normal') || '0 1 0').split(' ').map(Number));
+        const atualiza = () => {
+          const o = mv.getCameraOrbit(), th = o.theta - (mv.turntableRotation || 0), sp = Math.sin(o.phi), dx = Math.sin(th) * sp, dy = Math.cos(o.phi), dz = Math.cos(th) * sp;
+          hs.forEach((h, i) => { const n = normais[i], d = (n[0] * dx + n[1] * dy + n[2] * dz) / (Math.hypot(n[0], n[1], n[2]) || 1); h.toggleAttribute('data-visible', d > 0.28); });
+        };
+        mv.addEventListener('camera-change', atualiza); atualiza();
+      } catch (e) {}
+    }, { once: true });
   };
   if ('IntersectionObserver' in window) { const io = new IntersectionObserver((e) => { if (e[0].isIntersecting) { io.disconnect(); montar(); } }, { rootMargin: '200px' }); io.observe(alvo); } else montar();
 }
@@ -194,6 +224,7 @@ raiz.addEventListener('click', (ev) => {
   const el = ev.target.closest && ev.target.closest('[data-abrir],[data-parte],[data-carro]'); if (!el) return;
   if (ev.defaultPrevented || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.button) return;
   ev.preventDefault();
+  track(el.dataset.parte ? 'ep_parte' : el.dataset.carro ? 'ep_modelo' : 'ep_abrir_3d', { parte: el.dataset.parte || '', carro: el.dataset.carro || '' });
   if (el.id === 'ep-cta' || el.hasAttribute('data-abrir')) explodir(el);
   abrirNoViewer({ carro: el.dataset.carro, parte: el.dataset.parte });
 });
@@ -273,4 +304,98 @@ $$('#ep-faq details').forEach((d) => {
 {
   const box = $('#ep-termos');
   if (box) box.innerHTML = ['Capô', 'Para-choque', 'Farol', 'Lanterna', 'Retrovisor', 'Roda', 'Porta', 'Parabrisa', 'Grade', 'Tampa traseira', 'Paralama', 'Maçaneta'].map((p) => '<a href="/q?keywords=' + encodeURIComponent(p) + '">' + p + '</a>').join('');
+}
+
+/* ---------- giro do carro na rolagem ---------- */
+{
+  const sec = $('#giro'), box = $('#ep-giro-carro'), lis = $$('#ep-giro-passos li');
+  if (sec && box && lis.length) {
+    const PAS = [{ t: 25, p: 76, r: 105 }, { t: 90, p: 78, r: 100 }, { t: 98, p: 86, r: 70 }, { t: 180, p: 72, r: 105 }, { t: 215, p: 24, r: 125 }];
+    let mv = null, alvo = 0, atual = -1, raf = 0, visivel = false, ult = -1;
+    const montar = async () => {
+      if (mv) return;
+      const c = carros.find((x) => x.id === 'jeep-compass') || carros[0]; if (!c) return;
+      await customElements.whenDefined('model-viewer').catch(() => {});
+      mv = document.createElement('model-viewer');
+      mv.setAttribute('interaction-prompt', 'none'); mv.setAttribute('disable-zoom', ''); mv.setAttribute('disable-pan', ''); mv.setAttribute('shadow-intensity', '1.1'); mv.setAttribute('shadow-softness', '1');
+      mv.setAttribute('exposure', '1.1'); mv.setAttribute('environment-image', 'neutral'); mv.setAttribute('camera-orbit', PAS[0].t + 'deg ' + PAS[0].p + 'deg ' + PAS[0].r + '%'); mv.setAttribute('touch-action', 'pan-y');
+      mv.setAttribute('alt', 'Carro girando conforme você rola a página'); mv.setAttribute('reveal', 'auto');
+      try { customElements.get('model-viewer').meshoptDecoderLocation = 'https://cdn.jsdelivr.net/npm/meshoptimizer@0.22.0/meshopt_decoder.js'; } catch (e) {}
+      mv.poster = BASE + '/posters/poster-' + c.id + '.webp'; mv.src = BASE + '/assets/' + c.file;
+      box.appendChild(mv);
+      quadro();
+    };
+    const progresso = () => { const r = sec.getBoundingClientRect(), tot = Math.max(1, sec.offsetHeight - innerHeight); return Math.min(1, Math.max(0, -(r.top - 62) / tot)); };
+    const suave = (x) => x * x * (3 - 2 * x);
+    const quadro = () => {
+      raf = 0;
+      alvo = progresso();
+      atual = atual < 0 ? alvo : atual + (alvo - atual) * 0.14;
+      const f = atual * (PAS.length - 1), i = Math.min(PAS.length - 2, Math.floor(f)), k = suave(f - i), a = PAS[i], b = PAS[i + 1];
+      if (mv) { try { mv.cameraOrbit = (a.t + (b.t - a.t) * k).toFixed(1) + 'deg ' + (a.p + (b.p - a.p) * k).toFixed(1) + 'deg ' + (a.r + (b.r - a.r) * k).toFixed(1) + '%'; mv.jumpCameraToGoal(); } catch (e) {} }
+      const ativo = Math.min(PAS.length - 1, Math.round(f));
+      if (ativo !== ult) { ult = ativo; lis.forEach((li, n) => li.classList.toggle('on', n === ativo)); track('ep_giro_passo', { passo: ativo }); }
+      if (visivel && Math.abs(alvo - atual) > 0.0004) raf = requestAnimationFrame(quadro);
+    };
+    const mexe = () => { if (!raf && visivel) raf = requestAnimationFrame(quadro); };
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver((es) => { visivel = es[0].isIntersecting; if (visivel) { montar(); mexe(); } }, { rootMargin: '600px 0px' }).observe(sec);
+    } else { visivel = true; montar(); }
+    addEventListener('scroll', mexe, { passive: true }); addEventListener('resize', mexe);
+  }
+}
+
+/* ---------- vitrine: produtos reais da loja (le a pagina de resultados da busca, como o visualizador faz) ---------- */
+{
+  const sec = $('#vitrine'), tabs = $('#ep-vtabs'), grid = $('#ep-vgrid'), mais = $('#ep-vmais');
+  const TERMOS = ['Capô', 'Farol', 'Para-choque', 'Retrovisor', 'Roda', 'Lanterna'];
+  const cacheV = {};
+  const buscaProdutos = async (q) => {
+    if (cacheV[q]) return cacheV[q];
+    const r = await fetch('/q?keywords=' + encodeURIComponent(q), { credentials: 'same-origin' });
+    if (!r.ok) throw new Error('http-' + r.status);
+    const buf = await r.arrayBuffer(); let html;
+    try { html = new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch (e) { html = new TextDecoder('windows-1252').decode(buf); }
+    const d = new DOMParser().parseFromString(html, 'text/html');
+    const tx = (e) => (e ? e.textContent.replace(/\s+/g, ' ').trim() : '');
+    const img = (e) => { const i = e && e.querySelector('img'); return i ? (i.getAttribute('data-src') || i.getAttribute('src') || '') : ''; };
+    const lista = [...d.querySelectorAll('article.isb-card')].slice(0, 8).map((c) => {
+      const a = c.querySelector('a.isb-card__name') || c.querySelector('a[href]'); if (!a) return null;
+      return { nome: tx(a), url: a.getAttribute('href') || '', img: img(c), preco: tx(c.querySelector('.isb-price__now')), de: tx(c.querySelector('.isb-price s, .isb-price del, .isb-price__old, .isb-price__was')) };
+    }).filter(Boolean);
+    cacheV[q] = lista; return lista;
+  };
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const mostra = async (q, btn) => {
+    $$('button', tabs).forEach((b) => b.setAttribute('aria-selected', String(b === btn)));
+    mais.href = '/q?keywords=' + encodeURIComponent(q);
+    grid.innerHTML = '<div class="ep-sk"></div>'.repeat(4);
+    try {
+      const lista = await buscaProdutos(q);
+      if (!lista.length) { grid.innerHTML = '<p class="ep-vvazio">Nenhum produto encontrado agora para "' + esc(q) + '". Veja todas as peças na loja.</p>'; return; }
+      grid.innerHTML = lista.map((p) => '<a class="ep-prod" href="' + esc(p.url) + '" data-termo="' + esc(q) + '">' + (p.img ? '<img loading="lazy" alt="' + esc(p.nome) + '" src="' + esc(p.img) + '">' : '') + '<div><b>' + esc(p.nome) + '</b><p>' + (p.de ? '<s>' + esc(p.de) + '</s>' : '') + '<span>' + esc(p.preco) + '</span></p></div></a>').join('');
+      if (A && !reduz) A.animate($$('.ep-prod', grid), { opacity: [0, 1], translateY: [20, 0], delay: A.stagger(60), duration: 600, ease: 'outExpo' });
+    } catch (e) { grid.innerHTML = '<p class="ep-vvazio">Não foi possível carregar os produtos agora. <a href="/q?keywords=' + encodeURIComponent(q) + '">Ver na loja</a>.</p>'; }
+  };
+  if (sec && tabs) {
+    tabs.innerHTML = TERMOS.map((q, i) => '<button type="button" role="tab" data-q="' + q + '" aria-selected="' + (i === 0) + '">' + q + '</button>').join('');
+    tabs.addEventListener('click', (ev) => { const b = ev.target.closest('button'); if (!b) return; track('ep_vitrine_aba', { termo: b.dataset.q }); mostra(b.dataset.q, b); });
+    grid.addEventListener('click', (ev) => { const a = ev.target.closest('a.ep-prod'); if (a) track('ep_vitrine_produto', { termo: a.dataset.termo, url: a.getAttribute('href') }); });
+    const primeira = async () => {
+      try { const l = await buscaProdutos(TERMOS[0]); if (!l.length) { sec.hidden = true; return; } } catch (e) { sec.hidden = true; return; }
+      sec.hidden = false; mostra(TERMOS[0], tabs.firstElementChild);
+    };
+    if ('IntersectionObserver' in window) { const io = new IntersectionObserver((es) => { if (es[0].isIntersecting) { io.disconnect(); primeira(); } }, { rootMargin: '500px 0px' }); io.observe(sec.hidden ? $('#modelos') : sec); } else primeira();
+  }
+}
+
+/* ---------- medição: busca rápida, FAQ, seções vistas ---------- */
+{
+  const bq = $('.ep-bq'); if (bq) bq.addEventListener('submit', () => track('ep_busca_rapida', { termo: (bq.querySelector('input').value || '').slice(0, 60) }));
+  const tm = $('#ep-termos'); if (tm) tm.addEventListener('click', (ev) => { const a = ev.target.closest('a'); if (a) track('ep_termo', { termo: a.textContent }); });
+  $$('#ep-faq details').forEach((d) => d.addEventListener('toggle', () => { if (d.open) track('ep_faq', { pergunta: (d.querySelector('summary').textContent || '').slice(0, 80) }); }));
+  if ('IntersectionObserver' in window) {
+    const vistas = new Set(), io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting && !vistas.has(e.target.id)) { vistas.add(e.target.id); track('ep_secao', { secao: e.target.id }); } }), { threshold: 0.35 });
+    ['como', 'giro', 'checagens', 'comparativo', 'partes', 'modelos', 'vitrine', 'busca-rapida', 'confianca', 'visualizador', 'faq'].forEach((id) => { const s = document.getElementById(id); if (s) io.observe(s); });
+  }
 }
