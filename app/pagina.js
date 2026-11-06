@@ -475,8 +475,10 @@ function perfilAuto(tipo, lista, C, F, S, minY, mh, wh, H) {
   for (let i = 0; i < N; i++) if (h[i] < 0) { let a = i - 1, b = i + 1; while (a >= 0 && h[a] < 0) a--; while (b < N && h[b] < 0) b++; h[i] = a >= 0 ? h[a] : (b < N ? h[b] : 0); }
   { const c = h.slice(); for (let i = 0; i < N; i++) { const w = []; for (let d = -2; d <= 2; d++) { const q = c[Math.min(N - 1, Math.max(0, i + d))]; w.push(q); } w.sort((p, q) => p - q); h[i] = w[2]; } } /* filtro de mediana: tira picos (antena, spoiler, interior) */
   const uB = (i) => U0 + (U1 - U0) * i / N, med = (a, b) => { const v = []; for (let i = 0; i < N; i++) { const u = uB(i) + (U1 - U0) / N / 2; if (u >= a && u <= b) v.push(h[i]); } v.sort((p, q) => p - q); return v.length ? v[Math.floor(v.length / 2)] : 0.5; };
-  let im = 0; for (let i = 0; i < N; i++) if (h[i] > h[im]) im = i;
-  const hmax = h[im]; let i0 = im, i1 = im; while (i0 > 0 && h[i0 - 1] >= hmax - 0.07) i0--; while (i1 < N - 1 && h[i1 + 1] >= hmax - 0.07) i1++;
+  /* teto = maior platô suavizado (ignora antena/spoiler) */
+  const sm = h.map((_, i) => { let s = 0, c = 0; for (let d = -5; d <= 5; d++) { const q = i + d; if (q >= 0 && q < N) { s += h[q]; c++; } } return s / c; });
+  let im = 0; for (let i = 0; i < N; i++) if (sm[i] > sm[im]) im = i;
+  const hmax = sm[im]; let i0 = im, i1 = im; while (i0 > 0 && h[i0 - 1] >= hmax - 0.07) i0--; while (i1 < N - 1 && h[i1 + 1] >= hmax - 0.07) i1++;
   const uR0 = uB(i0), uR1 = uB(i1 + 1), hf = med(0.75, 0.92), hr = med(-0.98, -0.9);
   explo.prof = { h: h.map((q) => +q.toFixed(2)), hmax, uR0, uR1, hf, hr };
   let j = i1; while (j < N - 1 && h[j] > hf + 0.07) j++; const uWs = Math.min(uB(j), 0.85);
@@ -485,6 +487,7 @@ function perfilAuto(tipo, lista, C, F, S, minY, mh, wh, H) {
   if (tipo === 'capo') return { u: [cl(uWs + 0.01), 0.95], g: [Math.max(0, hf - 0.12), hf + 0.14] };
   if (tipo === 'parabrisa') return { u: [cl(uR1 - 0.03), cl(uWs + 0.02)], g: [Math.max(0, hf - 0.03), 1.2] };
   if (tipo === 'teto') return { u: [cl(uR0), cl(uR1)], g: [Math.max(0, hmax - 0.1), 1.2] };
+  if (tipo === 'portamalas' && hr >= hmax - 0.1) { let q = 0; while (q < N - 1 && h[q] < hmax - 0.12) q++; return { u: [-0.97, Math.max(uB(q) + 0.08, -0.97 + 0.2)], g: [0.4, 1.2] }; } /* hatch/SUV: tampa traseira vai ate onde o teto comeca */
   if (tipo === 'portamalas') return { u: [-0.97, Math.max(cl(uRw), -0.97 + 0.28)], g: [Math.max(0, hr - 0.14), hr + 0.2] };
   if (tipo === 'portas') return { u: [cl(uR0 - 0.1), cl(uR1 + 0.1)] };
   return {};
