@@ -268,3 +268,9 @@ $$('#ep-faq details').forEach((d) => {
   /* links antigos de /3d-carros/?carro=...&parte=... agora apontam para esta pagina */
   if (/[?&](carro|parte)=/.test(location.search)) setTimeout(rolarAoViewer, 900);
 }
+
+/* ---------- busca rápida: peças mais procuradas (busca da própria loja: /q?keywords=) ---------- */
+{
+  const box = $('#ep-termos');
+  if (box) box.innerHTML = ['Capô', 'Para-choque', 'Farol', 'Lanterna', 'Retrovisor', 'Roda', 'Porta', 'Parabrisa', 'Grade', 'Tampa traseira', 'Paralama', 'Maçaneta'].map((p) => '<a href="/q?keywords=' + encodeURIComponent(p) + '">' + p + '</a>').join('');
+}
