@@ -208,7 +208,32 @@ function pintar(nome, rgb) {
 }
 
 mv.addEventListener('progress', (e) => { $('c3d-barra').style.width = Math.round((e.detail.totalProgress || 0) * 100) + '%'; });
-mv.addEventListener('load', () => { if (zonaAtual) setTimeout(() => focarZona(zonaAtual), 250); prePrecarregar(); aplicarAcabamento(); $('c3d-carga').classList.add('off'); mv.cameraOrbit = vista(32, 74, 105); mv.jumpCameraToGoal(); });
+/* centraliza a camera no carro de verdade: alguns modelos trazem pecas soltas que deslocam o centro automatico */
+let alvoCarro = 'auto auto auto';
+function centralizarModelo() {
+  alvoCarro = 'auto auto auto';
+  try {
+    try { mv.cameraTarget = 'auto auto auto'; } catch (e) {}
+    const sy = Object.getOwnPropertySymbols(mv).find((q) => q.description === 'scene'), sc = mv[sy], tg = sc.getObjectByName('Target');
+    if (!tg) return;
+    sc.updateMatrixWorld(true);
+    const amo = [[], [], []];
+    sc.traverse((o) => {
+      if (!o.isMesh || !o.visible || !o.geometry || !o.geometry.attributes.position) return;
+      const p = o.geometry.attributes.position, e = o.matrixWorld.elements;
+      for (let i = 0; i < p.count; i += 2) {
+        const x = p.getX(i), y = p.getY(i), w = p.getZ(i);
+        amo[0].push(e[0] * x + e[4] * y + e[8] * w + e[12]); amo[1].push(e[1] * x + e[5] * y + e[9] * w + e[13]); amo[2].push(e[2] * x + e[6] * y + e[10] * w + e[14]);
+      }
+    });
+    if (amo[0].length < 100) return;
+    const c = amo.map((v) => { v.sort((p, q) => p - q); const n = v.length; return (v[Math.floor(n * 0.004)] + v[Math.ceil(n * 0.996) - 1]) / 2; });
+    const t = [c[0] - tg.position.x, c[1] - tg.position.y, c[2] - tg.position.z];
+    alvoCarro = t[0] + 'm ' + t[1] + 'm ' + t[2] + 'm';
+    mv.cameraTarget = alvoCarro; mv.jumpCameraToGoal();
+  } catch (e) {}
+}
+mv.addEventListener('load', () => { centralizarModelo(); if (zonaAtual) setTimeout(() => focarZona(zonaAtual), 250); prePrecarregar(); aplicarAcabamento(); $('c3d-carga').classList.add('off'); mv.cameraOrbit = vista(32, 74, 105); mv.jumpCameraToGoal(); });
 mv.addEventListener('error', () => { $('c3d-carga-txt').textContent = 'Não foi possível carregar este modelo.'; $('c3d-barra').style.width = '0'; });
 
 function prePrecarregar() {
@@ -316,7 +341,7 @@ function desfazerExplosao() {
   explo.mascMats = [];
   explo.pecas = []; explo.restauros = []; explo.mats = new Map(); explo.ativa = false; explo.zona = null; explo.offMundo = null;
   const et = mv.querySelector('.c3d-etq'); if (et) et.hidden = true;
-  if (tinha) { try { mv.cameraTarget = 'auto auto auto'; } catch (e) {} renderizar(); }
+  if (tinha) { try { mv.cameraTarget = alvoCarro; } catch (e) {} renderizar(); }
 }
 const PELE = {
   'capo': { eixo: 'y', tol: 0.05, b: { u: [0.22, 0.74], v: [0.4, 1.1], aw: [0, 0.72] }, normal: (nu, ny) => ny > 0.55 },
@@ -385,11 +410,11 @@ function componentes(idx, nTri, id, lista) {
 }
 /* ===== Destaque por mascara no shader: contorno limpo (retangulo arredondado) em vez de recorte de triangulos ===== */
 const MASCARA = {
-  'capo': { modo: 0, u: [0.26, 0.74], w: 0.66, g: [0.4, 1.2], dir: [0, 1, 0], lim: 0.55, raio: 0.05 },
-  'teto': { todos: true, modo: 0, u: [-0.52, 0.26], w: 0.8, g: [0.52, 1.2], dir: [0, 1, 0], lim: -0.55, raio: 0.06 },
-  'portamalas': { modo: 0, u: [-0.8, -0.26], w: 0.72, g: [0.44, 1.2], dir: [-0.45, 0.9, 0], lim: 0.55, raio: 0.05 },
-  'parabrisa': { modo: 0, u: [0.02, 0.5], w: 0.78, g: [0.52, 1.2], dir: [0.55, 0.83, 0], lim: 0.62, raio: 0.05 },
-  'portas': { modo: 1, u: [-0.34, 0.3], v: [0.3, 0.92], g: [0.45, 1.4], dir: [0, 0, 1], lim: 0.3, raio: 0.04 },
+  'capo': { auto: 'capo', real: true, modo: 0, u: [0.3, 0.85], w: 0.85, g: [0.4, 1.2], dir: [0, 1, 0], lim: 0.55, raio: 0.05 },
+  'teto': { auto: 'teto', real: true, todos: true, modo: 0, u: [-0.6, 0.3], w: 0.85, g: [0.52, 1.2], dir: [0, 1, 0], lim: -0.55, raio: 0.06 },
+  'portamalas': { auto: 'portamalas', real: true, modo: 0, u: [-0.93, -0.3], w: 0.8, g: [0.44, 1.2], dir: [-0.45, 0.9, 0], lim: 0.55, raio: 0.05 },
+  'parabrisa': { auto: 'parabrisa', real: true, todos: true, tudo: true, modo: 0, u: [0.03, 0.58], w: 0.85, g: [0.52, 1.2], dir: [0.55, 0.83, 0], lim: 0.8, raio: 0.05 },
+  'portas': { real: true, modo: 1, u: [-0.4, 0.28], v: [0.3, 0.92], g: [0.6, 1.5], dir: [0, 0, 1], lim: 0.3, raio: 0.04 },
   /* rodas (fallback quando as ilhas nao sao achadas): dois circulos laterais nos eixos */
   'rodas': { real: true, todos: true, modo: 2, u: [0.6, 0.6], v: [0, 0.3], g: [0.45, 1.8], eixos: [0.62, -0.62], rad: 0.165, dir: [0, 0, 1], lim: -0.15, raio: 0.02 },
   'parachoque-d': { real: true, todos: true, modo: 0, u: [0.88, 1.05], w: 1.02, g: [0, 0.36], dir: [1, 0, 0], lim: -0.45, raio: 0.04 },
@@ -431,8 +456,41 @@ function mascararMaterial(mt, un) {
   };
   mt.customProgramCacheKey = () => chave; mt.needsUpdate = true;
 }
+/* ===== Perfil do carro: acha capo, para-brisa, teto e porta-malas pela silhueta (altura maxima ao longo do comprimento) ===== */
+function perfilAuto(tipo, lista, C, F, S, minY, mh, wh, H) {
+  const N = 90, U0 = -1.1, U1 = 1.1, h = new Array(N).fill(-1);
+  lista.forEach((m) => {
+    if (!m.visible) return;
+    m.updateWorldMatrix(true, false);
+    const p = m.geometry.attributes.position, e = m.matrixWorld.elements;
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), y = p.getY(i), w = p.getZ(i);
+      const X = e[0] * x + e[4] * y + e[8] * w + e[12], Y = e[1] * x + e[5] * y + e[9] * w + e[13], Z = e[2] * x + e[6] * y + e[10] * w + e[14];
+      const W = Math.abs((X - C[0]) * S[0] + (Z - C[2]) * S[2]) / wh; if (W > 0.65) continue;
+      const U = ((X - C[0]) * F[0] + (Y - C[1]) * F[1] + (Z - C[2]) * F[2]) / mh;
+      const b = Math.floor((U - U0) / (U1 - U0) * N); if (b < 0 || b >= N) continue;
+      const v = (Y - minY) / H; if (v > h[b]) h[b] = v;
+    }
+  });
+  for (let i = 0; i < N; i++) if (h[i] < 0) { let a = i - 1, b = i + 1; while (a >= 0 && h[a] < 0) a--; while (b < N && h[b] < 0) b++; h[i] = a >= 0 ? h[a] : (b < N ? h[b] : 0); }
+  { const c = h.slice(); for (let i = 0; i < N; i++) { const w = []; for (let d = -2; d <= 2; d++) { const q = c[Math.min(N - 1, Math.max(0, i + d))]; w.push(q); } w.sort((p, q) => p - q); h[i] = w[2]; } } /* filtro de mediana: tira picos (antena, spoiler, interior) */
+  const uB = (i) => U0 + (U1 - U0) * i / N, med = (a, b) => { const v = []; for (let i = 0; i < N; i++) { const u = uB(i) + (U1 - U0) / N / 2; if (u >= a && u <= b) v.push(h[i]); } v.sort((p, q) => p - q); return v.length ? v[Math.floor(v.length / 2)] : 0.5; };
+  let im = 0; for (let i = 0; i < N; i++) if (h[i] > h[im]) im = i;
+  const hmax = h[im]; let i0 = im, i1 = im; while (i0 > 0 && h[i0 - 1] >= hmax - 0.07) i0--; while (i1 < N - 1 && h[i1 + 1] >= hmax - 0.07) i1++;
+  const uR0 = uB(i0), uR1 = uB(i1 + 1), hf = med(0.75, 0.92), hr = med(-0.98, -0.9);
+  explo.prof = { h: h.map((q) => +q.toFixed(2)), hmax, uR0, uR1, hf, hr };
+  let j = i1; while (j < N - 1 && h[j] > hf + 0.07) j++; const uWs = Math.min(uB(j), 0.85);
+  let k = i0; while (k > 0 && h[k] > hr + 0.07) k--; const uRw = Math.max(uB(k + 1), -0.85);
+  const cl = (a) => Math.max(-1.05, Math.min(1.05, a));
+  if (tipo === 'capo') return { u: [cl(uWs + 0.01), 0.95], g: [Math.max(0, hf - 0.12), hf + 0.14] };
+  if (tipo === 'parabrisa') return { u: [cl(uR1 - 0.03), cl(uWs + 0.02)], g: [Math.max(0, hf - 0.03), 1.2] };
+  if (tipo === 'teto') return { u: [cl(uR0), cl(uR1)], g: [Math.max(0, hmax - 0.1), 1.2] };
+  if (tipo === 'portamalas') return { u: [-0.97, Math.max(cl(uRw), -0.97 + 0.28)], g: [Math.max(0, hr - 0.14), hr + 0.2] };
+  if (tipo === 'portas') return { u: [cl(uR0 - 0.1), cl(uR1 + 0.1)] };
+  return {};
+}
 function destacarMascara(z, passo2) {
-  const cfg = (atual && MASCARA_ESPECIAL[atual.id] && MASCARA_ESPECIAL[atual.id][z]) || MASCARA[z], lista = malhas(); if (!cfg || !lista.length || !atual || !EXPL[z]) return false;
+  let cfg = (atual && MASCARA_ESPECIAL[atual.id] && MASCARA_ESPECIAL[atual.id][z]) || MASCARA[z], lista = malhas(); if (!cfg || !lista.length || !atual || !EXPL[z]) return false;
   const f = atual.frente || '+z', ex = f[1] === 'x', sg = f[0] === '+' ? 1 : -1;
   const mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9], amo = [[], [], []];
   lista.forEach((m) => {
@@ -463,6 +521,8 @@ function destacarMascara(z, passo2) {
     if (v) return regra === 'incluir';
     return (pint.size && !cfg.todos) ? pint.has(mt.name) : true;
   };
+  if (cfg.auto) { try { cfg = Object.assign({}, cfg, perfilAuto(cfg.auto, lista, C, F, S, mn[1], L / 2, W / 2, H)); } catch (er) {} }
+  explo.dbg = { z, u: cfg.u, g: cfg.g, L, W, H };
   const mh = L / 2, c1 = (cfg.u[0] + cfg.u[1]) / 2 * mh, h1 = (cfg.u[1] - cfg.u[0]) / 2 * mh;
   let c2, h2;
   if (cfg.modo === 0) { c2 = 0; h2 = cfg.w * (W / 2); } else { c2 = (cfg.v[0] + cfg.v[1]) / 2 * H; h2 = (cfg.v[1] - cfg.v[0]) / 2 * H; }
