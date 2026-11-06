@@ -303,6 +303,7 @@ function numero(de, para, opc, fn) {
   requestAnimationFrame(passo); return { stop() { parado = true; } };
 }
 function desfazerExplosao() {
+  explo.zonaPend = null;
   if (explo.ctl) { try { explo.ctl.stop(); } catch (e) {} explo.ctl = null; }
   if (explo.pulso) { try { explo.pulso.stop(); } catch (e) {} explo.pulso = null; }
   explo.pecas.forEach((p) => { if (p.peca.parent) p.peca.parent.remove(p.peca); try { p.peca.geometry.dispose(); p.peca.material.dispose(); } catch (e) {} });
@@ -387,8 +388,8 @@ const MASCARA = {
   'portamalas': { modo: 0, u: [-0.8, -0.26], w: 0.72, g: [0.44, 1.2], dir: [-0.45, 0.9, 0], lim: 0.55, raio: 0.05 },
   'parabrisa': { modo: 0, u: [0.02, 0.5], w: 0.78, g: [0.52, 1.2], dir: [0.55, 0.83, 0], lim: 0.62, raio: 0.05 },
   'portas': { modo: 1, u: [-0.34, 0.3], v: [0.3, 0.92], g: [0.45, 1.4], dir: [0, 0, 1], lim: 0.3, raio: 0.04 },
-  'parachoque-d': { real: true, todos: true, modo: 0, u: [0.8, 1.05], w: 1.02, g: [0, 0.4], dir: [1, 0, 0], lim: -0.25, raio: 0.04 },
-  'parachoque-t': { real: true, todos: true, modo: 0, u: [-1.05, -0.8], w: 1.02, g: [0, 0.4], dir: [-1, 0, 0], lim: -0.25, raio: 0.04 }
+  'parachoque-d': { real: true, todos: true, modo: 0, u: [0.88, 1.05], w: 1.02, g: [0, 0.36], dir: [1, 0, 0], lim: -0.45, raio: 0.04 },
+  'parachoque-t': { real: true, todos: true, modo: 0, u: [-1.05, -0.88], w: 1.02, g: [0, 0.36], dir: [-1, 0, 0], lim: -0.45, raio: 0.04 }
 };
 /* uniformes compartilhados: o programa do shader e reaproveitado entre zonas, entao os objetos precisam ser os mesmos */
 const MASC_UN = { uF: { value: [0, 0, 1] }, uS: { value: [1, 0, 0] }, uCen: { value: [0, 0, 0] }, uDim: { value: [1, 1, 1, 0] }, uBox: { value: [0, 0, 1, 1] }, uPar: { value: [0, 0, 0, 1] }, uN: { value: [0, 1, 0, 0.5] }, uSt: { value: [0, 1] } };
@@ -425,10 +426,10 @@ function mascararMaterial(mt, un) {
   };
   mt.customProgramCacheKey = () => chave; mt.needsUpdate = true;
 }
-function destacarMascara(z) {
+function destacarMascara(z, passo2) {
   const cfg = MASCARA[z], lista = malhas(); if (!cfg || !lista.length || !atual || !EXPL[z]) return false;
   const f = atual.frente || '+z', ex = f[1] === 'x', sg = f[0] === '+' ? 1 : -1;
-  const mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9];
+  const mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9], amo = [[], [], []];
   lista.forEach((m) => {
     if (cfg.real && !m.visible) return; /* ignora o plano de sombra do model-viewer */
     m.updateWorldMatrix(true, false);
@@ -438,17 +439,21 @@ function destacarMascara(z) {
       const X = e[0] * x + e[4] * y + e[8] * w + e[12], Y = e[1] * x + e[5] * y + e[9] * w + e[13], Z = e[2] * x + e[6] * y + e[10] * w + e[14];
       if (X < mn[0]) mn[0] = X; if (Y < mn[1]) mn[1] = Y; if (Z < mn[2]) mn[2] = Z;
       if (X > mx[0]) mx[0] = X; if (Y > mx[1]) mx[1] = Y; if (Z > mx[2]) mx[2] = Z;
+      if (cfg.real) { amo[0].push(X); amo[1].push(Y); amo[2].push(Z); }
     }
   });
+  /* real: caixa robusta (percentis), ignora pecas soltas/distantes que alguns modelos trazem */
+  if (cfg.real && amo[0].length > 100) for (let k = 0; k < 3; k++) { const a = amo[k].sort((p, q) => p - q), n = a.length; mn[k] = a[Math.floor(n * 0.004)]; mx[k] = a[Math.ceil(n * 0.996) - 1]; }
   const C = [(mn[0] + mx[0]) / 2, (mn[1] + mx[1]) / 2, (mn[2] + mx[2]) / 2], D = [mx[0] - mn[0], mx[1] - mn[1], mx[2] - mn[2]];
   const L = ex ? D[0] : D[2], W = ex ? D[2] : D[0], H = D[1];
   const F = ex ? [sg, 0, 0] : [0, 0, sg], S = ex ? [0, 0, 1] : [1, 0, 0];
   const pint = new Set((atual.paint && atual.paint.materials) || []);
   const regra = VIDRO[z];
+  const temVidro = lista.some((m) => ehVidro(m));
   const usa = (m) => {
     const mt = Array.isArray(m.material) ? m.material[0] : m.material; if (!mt) return false;
     const v = ehVidro(m);
-    if (regra === 'so') return v;
+    if (regra === 'so') return temVidro ? v : true; /* modelo sem vidro separado: a mascara de forma ja restringe a area */
     if (v) return regra === 'incluir';
     return (pint.size && !cfg.todos) ? pint.has(mt.name) : true;
   };
@@ -460,6 +465,13 @@ function destacarMascara(z) {
     uF: { value: F }, uS: { value: S }, uCen: { value: C }, uDim: { value: [L / 2, W / 2, H, mn[1]] },
     uBox: { value: [c1, c2, h1, h2] }, uPar: { value: [cfg.modo, cfg.raio * L, gl[0], gl[1]] }, uN: { value: [cfg.dir[0], cfg.dir[1], cfg.dir[2], cfg.lim] }, uSt: { value: [1, 0.85] }
   };
+  /* real, passo 1: centraliza a camera no carro (cameraTarget desloca o modelo) e refaz o calculo no passo 2, ja com o modelo na posicao final */
+  if (cfg.real && !passo2) {
+    try { const sy = Object.getOwnPropertySymbols(mv).find((s) => s.description === 'scene'), tg = mv[sy].getObjectByName('Target'), tp = tg ? tg.position : { x: 0, y: 0, z: 0 }; mv.cameraTarget = (C[0] - tp.x) + 'm ' + (mn[1] + 0.4 * H - tp.y) + 'm ' + (C[2] - tp.z) + 'm'; } catch (er) {}
+    desfazerExplosao(); explo.zonaPend = z; renderizar();
+    setTimeout(() => { if (explo.zonaPend !== z) return; explo.zonaPend = null; try { if (!destacarMascara(z, true)) desfazerExplosao(); } catch (er) { desfazerExplosao(); } }, 350);
+    return true;
+  }
   desfazerExplosao();
   let alguma = false; const mm = [];
   lista.forEach((m) => {
@@ -472,27 +484,13 @@ function destacarMascara(z) {
   });
   if (!alguma) { desfazerExplosao(); return false; }
   explo.mascara = un; explo.mascMats = mm; explo.ativa = true; explo.zona = z;
-  /* zonas com real:true acompanham o deslocamento do modelo causado pelo cameraTarget (mascara colada no carro) */
-  if (cfg.real && cfg.seguir) {
-    const ref = lista[0], er0 = ref.matrixWorld.elements.slice(12, 15), C0 = C.slice(), mn0 = mn[1];
-    const seguir = () => {
-      if (explo.mascara !== un) return;
-      try {
-        ref.updateWorldMatrix(true, false); const e = ref.matrixWorld.elements;
-        const dx = e[12] - er0[0], dy = e[13] - er0[1], dz = e[14] - er0[2];
-        un.uCen.value = [C0[0] + dx, C0[1] + dy, C0[2] + dz]; un.uDim.value = [un.uDim.value[0], un.uDim.value[1], un.uDim.value[2], mn0 + dy];
-        mm.forEach((x) => { x.uniformsNeedUpdate = true; }); renderizar();
-      } catch (er) {}
-      requestAnimationFrame(seguir);
-    };
-    requestAnimationFrame(seguir);
-  }
   const cM = mv.getBoundingBoxCenter(), dM = mv.getDimensions();
   const mundoMod = (p) => [cM.x + (p[0] - C[0]) * (dM.x / (D[0] || 1)), cM.y + (p[1] - C[1]) * (dM.y / (D[1] || 1)), cM.z + (p[2] - C[2]) * (dM.z / (D[2] || 1))];
   const cx = ex ? C[0] + sg * c1 : C[0], cz = ex ? C[2] : C[2] + sg * c1;
   const cy = cfg.modo === 0 ? mn[1] + (cfg.g[0] + 0.08) * H : mn[1] + c2;
-  const topo = mundoMod([cx, cy + 0.08 * H, cz]);
-  if (!cfg.real) { try { mv.cameraTarget = topo[0] + 'm ' + (topo[1] - 0.08 * H * (dM.y / (D[1] || 1))) + 'm ' + topo[2] + 'm'; } catch (er) {} } /* real: mantem o alvo automatico, sem deslocar o modelo */
+  let topo = mundoMod([cx, cy + 0.08 * H, cz]);
+  if (cfg.real) { try { const sy = Object.getOwnPropertySymbols(mv).find((s) => s.description === 'scene'), tg = mv[sy].getObjectByName('Target'); topo = [cx - tg.position.x, mn[1] + 0.3 * H - tg.position.y, cz - tg.position.z]; } catch (er) {} }
+  if (!cfg.real) { try { mv.cameraTarget = topo[0] + 'm ' + (topo[1] - 0.08 * H * (dM.y / (D[1] || 1))) + 'm ' + topo[2] + 'm'; } catch (er) {} }
   explo.pulso = numero(0.85, 1.0, { duration: 1.1, repeat: 3, repeatType: 'reverse', ease: 'easeInOut' }, (v) => { un.uSt.value = [1, v]; mm.forEach((x) => { x.uniformsNeedUpdate = true; }); renderizar(); });
   const et = mv.querySelector('.c3d-etq');
   if (et) {
@@ -565,8 +563,8 @@ function destacarZona(z, modo) {
     if (modo === 'circulo') {
       for (let tt = 0; tt < nTri; tt++) {
         const inf = infoTri(w, idx, tt); if (!inf) continue; const q = quadro(inf[0], inf[1], inf[2]); const nw = ex ? inf[5] : inf[3];
-        if (Math.abs(q[2]) < 0.45 || Math.abs(nw) < 0.3) continue;
-        for (let ci = 0; ci < circulos.length; ci++) { const c = circulos[ci]; if (c.lado !== (q[2] >= 0 ? 1 : -1) || nw * c.lado < 0 || Math.abs(Math.abs(q[2]) - c.pw) > 0.1) continue;
+        if (Math.abs(q[2]) < 0.4) continue;
+        for (let ci = 0; ci < circulos.length; ci++) { const c = circulos[ci]; if (c.lado !== (q[2] >= 0 ? 1 : -1) || Math.abs(Math.abs(q[2]) - c.pw) > 0.3) continue;
           if (Math.hypot((q[0] - c.cu) * (L / 2), (q[1] - c.cv) * H) < c.r) { let l = escolhidos.get(c.chave); if (!l) { l = { lado: c.lado, tris: [] }; escolhidos.set(c.chave, l); } l.tris.push(tt); break; } }
       }
     } else if (ehIlha) {
