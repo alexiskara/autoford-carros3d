@@ -28,6 +28,13 @@ const ZONAS = {
   'direcao': { nome: 'Direção', termo: 'caixa de direção', cam: [0, 52, 70] },
   'limpador': { nome: 'Limpador de parabrisa', termo: 'limpador parabrisa', cam: [0, 60, 80] },
   'distribuicao': { nome: 'Kit de distribuição', termo: 'kit de distribuição', cam: [0, 52, 70] },
+  'motor-v6': { nome: 'Motor V6 (3.6) explodido', termo: 'motor v6', cam: [0, 52, 70] },
+  'arrefecimento': { nome: 'Arrefecimento animado', termo: 'arrefecimento', cam: [0, 52, 70] },
+  'lift': { nome: 'Kit lift antes/depois', termo: 'kit lift', cam: [0, 52, 70] },
+  'corte-termostato': { nome: 'Termostato em corte', termo: 'válvula termostática', cam: [0, 52, 70] },
+  'corte-borboleta': { nome: 'Borboleta em corte', termo: 'corpo de borboleta', cam: [0, 52, 70] },
+  'corte-solenoide': { nome: 'Solenoide em corte', termo: 'válvula solenoide', cam: [0, 52, 70] },
+  'corte-sensor-oleo': { nome: 'Sensor de óleo em corte', termo: 'sensor pressão óleo', cam: [0, 52, 70] },
   /* peças do motor: só aparecem dentro do motor 3D (clicáveis nele) e nos atalhos de "Motor" */
   'cabecote': { nome: 'Cabeçote', termo: 'cabeçote', cam: [0, 52, 70], oculta: 1 },
   'valvulas': { nome: 'Válvulas', termo: 'válvula', cam: [0, 52, 70], oculta: 1 },
@@ -911,29 +918,86 @@ function marcarZona(z) {
   document.querySelectorAll('.c3d-zonas button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.z === z));
 }
 
-let motor = null, motorTipo = null, motorSeq = 0, motorTimer = 0;
-function sincronizarMotor() { if (motor) motor.selecionar(zonaAtual && zonaAtual !== motorTipo ? zonaAtual : null); }
+let motor = null, motorTipo = null, motorSeq = 0, motorTimer = 0, motor360 = false, ver360 = false, selMotor = null, ctlTimer = 0;
+/* Modelos reais (.glb) por peça: { 'farol': 'https://.../farol.glb' }. Veja LEIA-ME-MODELOS-REAIS.md */
+const MODELOS_REAIS = {};
+/* Giro 360° com fotos por peça: { 'farol': { base: 'https://.../farol/', n: 36, ext: 'jpg', pad: 2, inicio: 1 } } */
+const GIROS_360 = {};
+let qualAlta = (function () { const q = ler('c3d_qual'); if (q) return q === '1'; return !(matchMedia('(pointer: coarse)').matches || Math.min(innerWidth, innerHeight) < 700); })();
+function sincronizarMotor() { if (motor) motor.selecionar(selMotor || (zonaAtual && zonaAtual !== motorTipo ? zonaAtual : null)); }
 function setExplodir(on) { if (motor) motor.explodir(on); const b = $('c3d-explodir'); if (b) b.setAttribute('aria-pressed', on ? 'true' : 'false'); }
+function avisar(txt) {
+  let a = $('c3d-aviso'); if (!a) { a = el('div', 'c3d-aviso'); a.id = 'c3d-aviso'; $('c3d-palco').appendChild(a); }
+  a.textContent = txt; a.classList.add('on'); clearTimeout(a._t); a._t = setTimeout(() => a.classList.remove('on'), 3800);
+}
+/* controles do simulador (sliders e interruptores), sincronizados com o modelo */
+function desenharControles() {
+  clearInterval(ctlTimer); const antigo = $('c3d-ctl'); if (antigo) antigo.remove();
+  if (!motor || !motor.controles || !motor.controles.length) return;
+  const c = el('div', 'c3d-ctl'); c.id = 'c3d-ctl'; const sync = [];
+  motor.controles.forEach((ct) => {
+    if (ct.tipo === 'toggle') {
+      const lb = el('label', 't'); const inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = !!ct.valor;
+      inp.onchange = () => motor.definir(ct.id, inp.checked); lb.appendChild(inp); lb.appendChild(document.createTextNode(ct.nome)); c.appendChild(lb);
+      sync.push(() => { inp.checked = !!ct.valor; });
+    } else {
+      const lb = el('label'); const topo = el('span', 'l'); const vl = el('b', null, ct.fmt(ct.valor)); topo.appendChild(el('span', null, ct.nome)); topo.appendChild(vl);
+      const inp = document.createElement('input'); inp.type = 'range'; inp.min = ct.min; inp.max = ct.max; inp.step = ct.passo; inp.value = ct.valor; inp.setAttribute('aria-label', ct.nome);
+      inp.oninput = () => { motor.definir(ct.id, +inp.value); vl.textContent = ct.fmt(+inp.value); };
+      lb.appendChild(topo); lb.appendChild(inp); c.appendChild(lb);
+      sync.push(() => { if (document.activeElement !== inp) inp.value = ct.valor; vl.textContent = ct.fmt(ct.valor); });
+    }
+  });
+  $('c3d-palco').appendChild(c); ctlTimer = setInterval(() => sync.forEach((f) => f()), 250);
+}
+function atualizarBotoes() {
+  const t = (id, off) => { const b = $(id); if (b) b.classList.toggle('c3d-off', !!off); };
+  t('c3d-explodir', !motor || motor360); t('c3d-qual', !motor || motor360 || !motor.qualidade); t('c3d-ar', !motor || motor360 || !motor.exportarGLB); t('c3d-360', !motorTipo || !GIROS_360[motorTipo]);
+  const q = $('c3d-qual'); if (q) q.setAttribute('aria-pressed', qualAlta ? 'true' : 'false');
+  const b3 = $('c3d-360'); if (b3) b3.setAttribute('aria-pressed', motor360 ? 'true' : 'false');
+}
+/* realidade aumentada: gera um .glb do modelo atual e abre no visualizador de AR do aparelho */
+async function abrirAR() {
+  if (!motor || !motor.exportarGLB) { avisar('Realidade aumentada indisponível para este modelo.'); return; }
+  avisar('Preparando a realidade aumentada\u2026');
+  try {
+    const blob = await motor.exportarGLB(); const url = URL.createObjectURL(blob);
+    const v = document.createElement('model-viewer'); v.setAttribute('ar', ''); v.setAttribute('ar-modes', 'webxr scene-viewer quick-look'); v.setAttribute('ar-placement', 'floor');
+    v.setAttribute('loading', 'eager'); v.setAttribute('reveal', 'auto'); v.style.cssText = 'position:fixed;left:0;top:0;width:320px;height:320px;opacity:0;pointer-events:none;z-index:-1'; v.src = url; document.body.appendChild(v);
+    await new Promise((ok, no) => { v.addEventListener('load', ok, { once: true }); v.addEventListener('error', no, { once: true }); });
+    if (v.canActivateAR) { v.activateAR(); track('c3d_ar', { tipo: motorTipo }); } else avisar('Seu aparelho não abre realidade aumentada. Experimente no celular.');
+    setTimeout(() => { v.remove(); URL.revokeObjectURL(url); }, 180000);
+  } catch (er) { avisar('Não foi possível gerar o modelo para realidade aumentada.'); }
+}
 /* mostra no palco o modelo 3D da peça (motor, freios, suspensão...) no lugar do carro, com troca suave */
-function mostrarMotor(tipo) {
+function mostrarMotor(tipo, forcar) {
   const palco = $('c3d-palco'), box = $('c3d-motor3d');
   clearTimeout(motorTimer);
   palco.classList.add('c3d-modo-motor');
-  if (motor && motorTipo === tipo) { sincronizarMotor(); return; }
+  const quer360 = ver360 && !!GIROS_360[tipo];
+  if (motor && motorTipo === tipo && motor360 === quer360 && !forcar) { sincronizarMotor(); return; }
   const meu = ++motorSeq;
   const onParte = (k) => { if (ZONAS[k]) escolher(k, false); };
   const carregar = () => {
     if (meu !== motorSeq) return;
     if (motor) { motor.destruir(); motor = null; motorTipo = null; }
+    desenharControles(); atualizarBotoes();
     box.classList.remove('c3d-troca'); box.textContent = ''; box.appendChild(el('div', 'c3d-motor-msg', 'Carregando modelo 3D\u2026'));
+    const opc = { onParte: onParte, qualidade: qualAlta ? 'alta' : 'leve' };
     import(tipo === 'motor' ? MOTOR_JS : MAQUINAS_JS).then((mod) => {
-      if (meu !== motorSeq || !palco.classList.contains('c3d-modo-motor')) return;
+      if (meu !== motorSeq || !palco.classList.contains('c3d-modo-motor')) return null;
       box.textContent = '';
-      motor = tipo === 'motor' ? mod.montarMotor(box, { onParte: onParte }) : mod.montarMaquina(box, tipo, { onParte: onParte });
-      motorTipo = tipo;
-      box.appendChild(el('div', 'c3d-motor-dica', 'Arraste para girar \u00b7 clique em uma peça'));
-      const b = $('c3d-explodir'); if (b) b.setAttribute('aria-pressed', 'true'); /* o modelo entra montado e abre sozinho */
-      sincronizarMotor();
+      if (tipo === 'motor') return mod.montarMotor(box, opc);
+      if (quer360) return mod.montarGiro360(box, GIROS_360[tipo], opc);
+      if (MODELOS_REAIS[tipo]) return mod.montarMaquinaGLB(box, MODELOS_REAIS[tipo], opc);
+      return mod.montarMaquina(box, tipo, opc);
+    }).then((inst) => {
+      if (!inst) return;
+      if (meu !== motorSeq) { try { inst.destruir(); } catch (er) {} return; }
+      motor = inst; motorTipo = tipo; motor360 = quer360;
+      box.appendChild(el('div', 'c3d-motor-dica', quer360 ? 'Arraste para girar' : 'Arraste para girar \u00b7 clique em uma peça'));
+      const b = $('c3d-explodir'); if (b) b.setAttribute('aria-pressed', motor.estaExpandido() ? 'true' : 'false');
+      desenharControles(); atualizarBotoes(); sincronizarMotor();
     }).catch(() => {
       if (meu !== motorSeq) return;
       box.textContent = '';
@@ -944,12 +1008,27 @@ function mostrarMotor(tipo) {
   if (motor) { box.classList.add('c3d-troca'); motorTimer = setTimeout(carregar, 240); } else carregar();
 }
 function esconderMotor() {
-  motorSeq++; clearTimeout(motorTimer);
+  motorSeq++; clearTimeout(motorTimer); clearInterval(ctlTimer);
   $('c3d-palco').classList.remove('c3d-modo-motor');
-  const antigo = motor; motor = null; motorTipo = null;
+  const antigo = motor; motor = null; motorTipo = null; motor360 = false; atualizarBotoes();
   if (antigo) setTimeout(() => { try { antigo.destruir(); } catch (er) {} }, 900); /* destrói depois do fade de saída */
 }
+/* diagnóstico por sintoma: abre o modelo certo e destaca as peças suspeitas */
+function diagnosticar(sint) {
+  zonaAtual = sint.modelo; marcarZona(sint.modelo); $('c3d-dica').classList.add('off'); sincronizarUrl(sint.modelo);
+  track('c3d_diagnostico', { carro: atual.id, sintoma: sint.id });
+  selMotor = sint.suspeitos; mostrarMotor(sint.modelo); irGaveta('meio'); seq++;
+  $('c3d-voltar').hidden = false; $('c3d-ph-tag').textContent = 'Diagnóstico por sintoma'; $('c3d-ph-tit').textContent = sint.nome; entradaTitulo();
+  $('c3d-ph-sub').textContent = sint.texto;
+  const box = $('c3d-pc'); box.textContent = '';
+  const w = el('div', 'c3d-rel'); w.appendChild(el('span', null, 'Peças suspeitas. Clique para ver os produtos.'));
+  const c = el('div', 'c3d-rel-c');
+  sint.suspeitos.forEach((k) => { const b = el('button', 'c3d-chip', ZONAS[k].nome); b.type = 'button'; b.onclick = () => escolher(k, true); c.appendChild(b); });
+  w.appendChild(c); box.appendChild(w);
+  $('c3d-ver').hidden = true; const vm = $('c3d-ver-modelo'); vm.hidden = false; vm.href = urlBusca(atual.brand + ' ' + atual.model); vm.textContent = 'Todas as peças do ' + atual.model;
+}
 function escolher(z, mover) {
+  selMotor = null;
   zonaAtual = z; marcarZona(z); $('c3d-dica').classList.add('off'); sincronizarUrl(z); track('c3d_parte', { carro: atual.id, parte: z, origem: mover ? 'lista' : 'clique3d' });
   const Z = ZONAS[z];
   if (Z.maq) mostrarMotor(Z.maq); else esconderMotor();
@@ -964,9 +1043,18 @@ function painelInicial() {
   $('c3d-ph-tit').textContent = atual.brand + ' ' + atual.model; entradaTitulo();
   $('c3d-ph-sub').textContent = 'Clique em uma parte do carro ou escolha abaixo.';
   const box = $('c3d-pc'); box.textContent = '';
-  const g = el('div', 'c3d-zonas');
-  Object.keys(ZONAS).filter((k) => !ZONAS[k].oculta).forEach((k) => { const b = el('button', null, ZONAS[k].nome); b.type = 'button'; b.dataset.z = k; b.setAttribute('aria-pressed', 'false'); b.onclick = () => escolher(k, true); g.appendChild(b); });
-  box.appendChild(g);
+  const diag = el('div', 'c3d-diag'); diag.appendChild(el('div', 'c3d-sec-t', 'Diagnóstico por sintoma'));
+  const dg = el('div', 'c3d-diag-b'); SINTOMAS.forEach((sn) => { const b = el('button', null, sn.nome); b.type = 'button'; b.onclick = () => diagnosticar(sn); dg.appendChild(b); }); diag.appendChild(dg); box.appendChild(diag);
+  const feitos = new Set();
+  const secao = (titulo, chaves) => {
+    const ks = chaves.filter((k) => ZONAS[k] && !ZONAS[k].oculta); if (!ks.length) return;
+    ks.forEach((k) => feitos.add(k)); box.appendChild(el('div', 'c3d-sec-t', titulo));
+    const g = el('div', 'c3d-zonas');
+    ks.forEach((k) => { const b = el('button', null, ZONAS[k].nome); b.type = 'button'; b.dataset.z = k; b.setAttribute('aria-pressed', 'false'); b.onclick = () => escolher(k, true); g.appendChild(b); });
+    box.appendChild(g);
+  };
+  SECOES.forEach((sc) => secao(sc[0], sc[1]));
+  secao('Outras partes', Object.keys(ZONAS));
   const q = atual.brand + ' ' + atual.model;
   $('c3d-ver').hidden = true;
   const vm = $('c3d-ver-modelo'); vm.hidden = false; vm.href = urlBusca(q); vm.textContent = 'Ver peças do ' + atual.model;
@@ -1003,8 +1091,35 @@ const GRUPOS = {
   'bomba-comb': [['flange-comb', 'Flange da bomba', 'flange bomba combustível'], ['filtro-comb', 'Filtro da bomba', 'filtro bomba combustível'], ['boia', 'Boia do tanque', 'boia combustível'], ['regulador-pressao', 'Regulador de pressão', 'regulador pressão combustível']],
   direcao: [['cremalheira', 'Cremalheira', 'cremalheira'], ['pinhao', 'Pinhão da direção', 'pinhão direção'], ['coifa-direcao', 'Coifa da direção', 'coifa direção'], ['barra-axial', 'Barra axial', 'barra axial'], ['terminal-direcao', 'Terminal de direção', 'terminal direção']],
   limpador: [['motor-limpador', 'Motor do limpador', 'motor limpador'], ['braco-limpador', 'Braço do limpador', 'braço limpador'], ['palheta', 'Palheta', 'palheta'], ['bico-esguicho', 'Bico do esguicho', 'esguicho']],
-  distribuicao: [['polia-comando', 'Polia do comando', 'polia comando'], ['polia-virabrequim', 'Polia do virabrequim', 'polia virabrequim'], ['bomba-dagua-kit', "Bomba d'água", "bomba d'agua"], ['tensor', 'Tensor', 'tensor correia'], ['polia-guia', 'Polia guia', 'polia guia']]
+  distribuicao: [['polia-comando', 'Polia do comando', 'polia comando'], ['polia-virabrequim', 'Polia do virabrequim', 'polia virabrequim'], ['bomba-dagua-kit', "Bomba d'água", "bomba d'agua"], ['tensor', 'Tensor', 'tensor correia'], ['polia-guia', 'Polia guia', 'polia guia']],
+  'motor-v6': [['coletor-admissao', 'Coletor de admissão', 'coletor admissão'], ['corpo-borboleta', 'Corpo de borboleta', 'corpo de borboleta'], ['tampa-valvulas', 'Tampa de válvulas', 'tampa de válvulas'], ['cabecote-v6', 'Cabeçote', 'cabeçote'], ['bobina-v6', 'Bobinas de ignição', 'bobina ignição'], ['bomba-agua-v6', "Bomba d'água", "bomba d'agua"], ['resfriador-v6', 'Resfriador de óleo', 'resfriador de óleo'], ['carter-v6', 'Cárter', 'carter'], ['sensor-oleo-v6', 'Sensor de pressão de óleo', 'sensor pressão óleo']],
+  arrefecimento: [['bomba-agua-arref', "Bomba d'água", "bomba d'agua"], ['termostato-arref', 'Válvula termostática', 'válvula termostática'], ['radiador-arref', 'Radiador', 'radiador'], ['ventoinha-arref', 'Eletroventilador', 'eletroventilador'], ['reservatorio-arref', 'Reservatório de expansão', 'reservatório expansão'], ['resfriador-oleo', 'Resfriador de óleo', 'resfriador de óleo'], ['mangueira-arref', 'Mangueiras e conectores', 'mangueira radiador']],
+  lift: [['amortecedor-lift', 'Amortecedor off-road', 'amortecedor'], ['mola-lift', 'Mola do kit lift', 'mola'], ['bandeja-lift', 'Bandeja / braço de controle', 'bandeja'], ['coxim-lift', 'Coxim e batente', 'coxim'], ['barra-track', 'Barra track', 'barra track'], ['pneu-lift', 'Pneu e roda', 'pneu']],
+  'corte-termostato': [['termo-elemento', 'Elemento termostático', 'termostato'], ['termo-mola', 'Mola do termostato', 'mola termostato'], ['termo-vedacao', 'Junta e vedação', 'junta termostato']],
+  'corte-borboleta': [['borb-eixo-placa', 'Placa e eixo da borboleta', 'borboleta'], ['borb-motor', 'Atuador eletrônico', 'corpo de borboleta'], ['borb-sensor', 'Sensor de posição (TPS)', 'sensor borboleta']],
+  'corte-solenoide': [['sol-bobina', 'Bobina do solenoide', 'válvula solenoide'], ['sol-embolo', 'Êmbolo', 'êmbolo solenoide'], ['sol-mola', 'Mola de retorno', 'mola solenoide']],
+  'corte-sensor-oleo': [['soe-diafragma', 'Diafragma e elemento', 'sensor pressão óleo'], ['soe-conector', 'Conector', 'conector sensor óleo']]
 };
+/* Seções da lista de partes */
+const SECOES = [
+  ['Carroceria', ['capo', 'parachoque-d', 'farol', 'parabrisa', 'limpador', 'teto', 'portas', 'retrovisor', 'rodas', 'portamalas', 'lanterna', 'parachoque-t']],
+  ['Motor e arrefecimento', ['motor', 'motor-v6', 'arrefecimento', 'radiador', 'turbo', 'distribuicao', 'bomba-comb', 'escapamento']],
+  ['Suspensão, freios e direção', ['suspensao', 'lift', 'freios', 'direcao']],
+  ['Transmissão', ['cambio', 'embreagem']],
+  ['Elétrica', ['alternador', 'bateria', 'partida']],
+  ['Simuladores em corte', ['corte-termostato', 'corte-borboleta', 'corte-solenoide', 'corte-sensor-oleo']]
+];
+/* Diagnóstico por sintoma: leva ao modelo 3D certo e destaca as peças suspeitas */
+const SINTOMAS = [
+  { id: 'esquentando', nome: 'Motor esquentando', modelo: 'arrefecimento', suspeitos: ['termostato-arref', 'bomba-agua-arref', 'ventoinha-arref', 'radiador-arref', 'reservatorio-arref', 'mangueira-arref'], texto: "O superaquecimento costuma vir do termostato preso, da bomba d'água, da ventoinha que não liga ou de vazamento no radiador e nas mangueiras." },
+  { id: 'oleo', nome: 'Luz do óleo acesa', modelo: 'motor-v6', suspeitos: ['sensor-oleo-v6', 'resfriador-v6', 'carter-v6', 'tampa-valvulas'], texto: 'Pressão baixa pode ser o sensor com defeito, vazamento no resfriador de óleo, no cárter ou na tampa de válvulas.' },
+  { id: 'falha-acel', nome: 'Falha na aceleração', modelo: 'motor-v6', suspeitos: ['corpo-borboleta', 'bobina-v6', 'coletor-admissao'], texto: 'Falhas e luz da injeção costumam envolver o corpo de borboleta sujo, bobinas de ignição cansadas ou vazamento no coletor de admissão.' },
+  { id: 'barulho-susp', nome: 'Barulho na suspensão', modelo: 'suspensao', suspeitos: ['amortecedor', 'coxim', 'bieleta', 'pivo', 'bandeja', 'batente'], texto: 'Batidas e estalos em buracos costumam vir de coxins, bieletas, pivôs, buchas da bandeja ou do amortecedor vencido.' },
+  { id: 'freio', nome: 'Freio vibrando ou rangendo', modelo: 'freios', suspeitos: ['disco-freio', 'pastilha', 'pinca'], texto: 'Vibração no pedal indica disco empenado; rangido, pastilhas gastas; carro puxando para um lado, pinça travada.' },
+  { id: 'farol', nome: 'Farol fraco ou queimado', modelo: 'farol', suspeitos: ['lampada-farol', 'lente-farol', 'refletor'], texto: 'Além da lâmpada, lente opaca e refletor queimado reduzem muito a luz.' },
+  { id: 'partida', nome: 'Não pega ou estala na partida', modelo: 'partida', suspeitos: ['solenoide', 'bendix', 'escovas-partida', 'induzido'], texto: 'Estalo sem girar costuma ser solenoide ou bendix; giro fraco, escovas gastas ou induzido com defeito.' },
+  { id: 'lift', nome: 'Quero elevar o veículo', modelo: 'lift', suspeitos: ['mola-lift', 'amortecedor-lift', 'bandeja-lift', 'coxim-lift', 'barra-track', 'pneu-lift'], texto: 'Veja como o kit lift muda altura, ângulo dos braços e o curso da suspensão. Use os controles para comparar.' }
+];
 ZONAS.motor.maq = 'motor'; PECAS_MOTOR.forEach((k) => { ZONAS[k].maq = 'motor'; });
 const GRUPO_CHAVES = { motor: PECAS_MOTOR };
 Object.keys(GRUPOS).forEach((tipo) => {
@@ -1178,13 +1293,20 @@ if (PLACA_API) { $('c3d-placa').hidden = false; $('c3d-placa-ok').onclick = busc
 (function garantirMotorUI() {
   const palco = $('c3d-palco'); if (!palco) return;
   if (!$('c3d-motor3d')) { const d = el('div', 'c3d-motor3d'); d.id = 'c3d-motor3d'; mv.insertAdjacentElement('afterend', d); }
-  if (!$('c3d-explodir')) {
-    const f = palco.querySelector('.c3d-ferr'); if (!f) return;
-    const b = el('button', 'c3d-ico c3d-mot-ctl'); b.id = 'c3d-explodir'; b.type = 'button'; b.setAttribute('aria-pressed', 'true'); b.title = 'Expandir ou montar o motor'; b.setAttribute('aria-label', 'Expandir ou montar o motor');
-    b.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 3v5M9.5 5.5 12 3l2.5 2.5M12 21v-5M9.5 18.5 12 21l2.5-2.5M3 12h5M5.5 9.5 3 12l2.5 2.5M21 12h-5M18.5 9.5 21 12l-2.5 2.5"/></svg>';
-    f.insertBefore(b, f.firstChild);
-  }
+  const f = palco.querySelector('.c3d-ferr'); if (!f) return;
+  const botao = (id, titulo, svg, pressed) => {
+    if ($(id)) return;
+    const b = el('button', 'c3d-ico c3d-mot-ctl c3d-off'); b.id = id; b.type = 'button'; if (pressed) b.setAttribute('aria-pressed', 'true'); b.title = titulo; b.setAttribute('aria-label', titulo); b.innerHTML = svg; f.insertBefore(b, f.firstChild);
+  };
+  botao('c3d-360', 'Ver fotos 360° da peça real', '<svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="9" ry="4"/><path d="M12 3a4 9 0 0 1 0 18M12 3a4 9 0 0 0 0 18"/></svg>', false);
+  botao('c3d-ar', 'Ver em realidade aumentada (tamanho real)', '<svg viewBox="0 0 24 24"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9L12 3Z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/></svg>', false);
+  botao('c3d-qual', 'Qualidade realista (sombras e reflexos)', '<svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/><path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16Z"/></svg>', true);
+  botao('c3d-explodir', 'Expandir ou montar a peça', '<svg viewBox="0 0 24 24"><path d="M12 3v5M9.5 5.5 12 3l2.5 2.5M12 21v-5M9.5 18.5 12 21l2.5-2.5M3 12h5M5.5 9.5 3 12l2.5 2.5M21 12h-5M18.5 9.5 21 12l-2.5 2.5"/></svg>', true);
+  $('c3d-explodir').classList.remove('c3d-off');
 })();
+$('c3d-ar').onclick = abrirAR;
+$('c3d-qual').onclick = () => { qualAlta = !qualAlta; guardar('c3d_qual', qualAlta ? '1' : '0'); if (motor && motor.qualidade) motor.qualidade(qualAlta); atualizarBotoes(); avisar(qualAlta ? 'Qualidade realista ligada' : 'Qualidade leve (mais rápida)'); };
+$('c3d-360').onclick = () => { ver360 = !ver360; if (motorTipo) mostrarMotor(motorTipo, true); };
 if ($('c3d-explodir')) $('c3d-explodir').onclick = () => setExplodir(!(motor && motor.estaExpandido()));
 $('c3d-gira').onclick = () => { const on = mv.hasAttribute('auto-rotate'); if (on) mv.removeAttribute('auto-rotate'); else { if (explo.ativa) desfazerExplosao(); mv.setAttribute('auto-rotate', ''); } $('c3d-gira').setAttribute('aria-pressed', !on); };
 $('c3d-reset').onclick = () => { mv.cameraOrbit = vista(32, 74, 105); mv.querySelector('.c3d-pin').hidden = true; };
