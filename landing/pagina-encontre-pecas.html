@@ -1,7 +1,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebPage","name":"Encontre peças para o seu carro em 3D","description":"Gire o seu carro em 3D, clique na parte e encontre as peças compatíveis com o seu modelo.","inLanguage":"pt-BR"},{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Como sei se a peça serve no meu carro?","acceptedAnswer":{"@type":"Answer","text":"As peças são organizadas por modelo e você encontra cada parte do carro com um toque. Na dúvida, envie a peça pelo WhatsApp e confirmamos com você antes da compra."}},{"@type":"Question","name":"O meu carro não aparece na lista. E agora?","acceptedAnswer":{"@type":"Answer","text":"Estamos adicionando novos modelos. Enquanto isso, use a busca da loja ou chame no WhatsApp que ajudamos a achar a peça."}},{"@type":"Question","name":"Onde encontro o ano e a versão do meu carro?","acceptedAnswer":{"@type":"Answer","text":"No documento do veículo (CRLV) aparecem o ano de fabricação e o ano do modelo. A versão costuma vir escrita na tampa traseira ou no manual do proprietário."}},{"@type":"Question","name":"Como saber se a peça é do lado esquerdo ou direito?","acceptedAnswer":{"@type":"Answer","text":"O lado esquerdo é o do motorista e o direito é o do passageiro, sempre olhando do banco do carro para a frente. Se ficar em dúvida, confira nas fotos do produto ou fale com a gente."}},{"@type":"Question","name":"O que é o “Meu veículo”?","acceptedAnswer":{"@type":"Answer","text":"É onde você informa o modelo, o ano e o motor. A escolha fica salva no seu navegador e vale para todas as peças, para o selo “serve no seu carro” aparecer sem digitar de novo."}},{"@type":"Question","name":"A peça que procuro não está na loja. Posso pedir?","acceptedAnswer":{"@type":"Answer","text":"Pode. Use “Pedir orçamento desta peça”, conte o veículo e o código se tiver, e respondemos pelo WhatsApp. Se o produto esgotou, use “Avise-me quando chegar”."}},{"@type":"Question","name":"O passo a passo de instalação substitui o manual?","acceptedAnswer":{"@type":"Answer","text":"Não. Ele é uma orientação geral para você entender o serviço e as ferramentas. Siga sempre o manual do seu veículo e procure um profissional em serviços de freio, suspensão e distribuição."}},{"@type":"Question","name":"Funciona no celular?","acceptedAnswer":{"@type":"Answer","text":"Sim. O visualizador foi feito para toque: arraste para girar, use dois dedos para aproximar e toque na parte do carro."}},{"@type":"Question","name":"As imagens 3D são do meu carro exato?","acceptedAnswer":{"@type":"Answer","text":"São modelos ilustrativos do mesmo modelo de carro. Pequenas diferenças de versão ou ano podem existir, por isso a compatibilidade é sempre conferida pelo ano do veículo."}}]},{"@type":"ItemList","name":"Modelos de carro disponíveis em 3D","itemListElement":[{"@type":"ListItem","position":1,"name":"Chevrolet Onix"}]}]}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400..800&family=Space+Grotesk:wght@500..700&family=Unbounded:wght@500..800&family=JetBrains+Mono:wght@500..700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/alexiskara/autoford-carros3d@ecbbff376b9aa011b7f925a6a1c5a047a967e16c/app/landing.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/alexiskara/autoford-carros3d@ecbbff376b9aa011b7f925a6a1c5a047a967e16c/app/viewer.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/alexiskara/autoford-carros3d@62460956dc52ba3b0f7f9bc5657c85fcd1ecad04/app/landing.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/alexiskara/autoford-carros3d@62460956dc52ba3b0f7f9bc5657c85fcd1ecad04/app/viewer.css">
 
 <div class="ep" id="ep">
 
@@ -13,26 +13,44 @@
 </header>
 
 <!-- HERO -->
-<section class="ep-sec ep-hero" aria-labelledby="ep-h1">
+<section class="ep-sec ep-hero hv-pre" id="hero" aria-labelledby="ep-h1">
+  <div class="hv-aurora" aria-hidden="true"><div><i></i><i></i><i></i></div></div>
+  <div class="hv-grade" aria-hidden="true"></div>
   <canvas class="ep-paths" id="ep-paths" aria-hidden="true"></canvas>
   <div class="ep-hero-in">
-    <div>
-      <span class="ep-tag" data-rv><i></i> Peças por modelo · visualizador 3D</span>
-      <h1 id="ep-h1" data-rv>Clique no carro.<br><em>Encontre a peça certa.</em></h1>
-      <p class="ep-sub" data-rv>Gire o seu carro em 3D, toque no capô para ver o motor, nos faróis ou nas rodas, informe o ano e o motor e veja na hora o que serve no seu veículo. Compare, peça orçamento e aprenda a instalar em 3D. Sem chute, sem erro de compra.</p>
-      <form class="ep-busca" id="ep-busca" data-rv autocomplete="off">
+    <div class="hv-txt">
+      <span class="ep-tag hv"><i></i> Peças por modelo · visualizador 3D</span>
+      <h1 id="ep-h1" class="hv-h1" aria-label="Clique no carro. Encontre a peça certa."><span class="hv-l">Clique no carro.</span><span class="hv-l hv-l2">Encontre a peça certa.</span></h1>
+      <p class="ep-sub hv">Gire o seu carro em 3D, toque no capô para ver o motor, nos faróis ou nas rodas, informe o ano e o motor e veja na hora o que serve no seu veículo. Compare, peça orçamento e aprenda a instalar em 3D.</p>
+      <form class="ep-busca hv" id="ep-busca" autocomplete="off">
+        <svg class="hv-lupa" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
         <input id="ep-q" list="ep-lista-carros" placeholder="Qual é o seu carro? Ex.: Argo 2019" aria-label="Nome do seu carro">
         <datalist id="ep-lista-carros"></datalist>
+        <kbd class="hv-kbd" aria-hidden="true">Enter</kbd>
         <button class="ep-btn" type="submit" id="ep-go">Ver em 3D <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
       </form>
-      <ul class="ep-chips" data-rv>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4 4 10-10"/></svg>Serve no seu ano e motor</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4 4 10-10"/></svg>27 simuladores 3D</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4 4 10-10"/></svg>Passo a passo de instalação</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4 4 10-10"/></svg>Ajuda no WhatsApp</li>
+      <div class="hv-sug hv" id="hv-sug" aria-label="Sugestões de veículo"></div>
+      <ul class="hv-stats hv">
+        <li><b data-conta="27">0</b><span>simuladores 3D</span></li>
+        <li><b data-conta="160" data-suf="+">0</b><span>peças clicáveis</span></li>
+        <li><b data-conta="15">0</b><span>diagnósticos</span></li>
+        <li><b data-conta="9">0</b><span>guias de instalação</span></li>
       </ul>
     </div>
-    <div class="ep-car" id="ep-car" data-rv>
+    <div class="hv-palco hv" id="hv-palco">
+      <div class="hv-aneis" aria-hidden="true"><i></i><i></i></div>
+      <div class="hv-tilt" id="hv-tilt">
+        <div class="ep-car" id="ep-car"></div>
+        <svg class="hv-colchetes" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path pathLength="1" d="M0 15V0H15"/><path pathLength="1" d="M85 0H100V15"/><path pathLength="1" d="M100 85V100H85"/><path pathLength="1" d="M15 100H0V85"/></svg>
+        <div class="hv-scan" aria-hidden="true"></div>
+      </div>
+      <div class="hv-hud hv-hud-a" aria-live="polite"><small>Peça detectada</small><b id="hv-det">Capô</b><em id="hv-det-d">Motor, radiador e filtros</em></div>
+      <div class="hv-hud hv-hud-b" aria-hidden="true">X <span id="hv-x">000</span> · Y <span id="hv-y">000</span></div>
+      <a class="hv-tag hv-t0 on" data-i="0" data-parte="capo" href="#visualizador"><i></i>Capô<small>Motor</small></a>
+      <a class="hv-tag hv-t1" data-i="1" data-parte="farol" href="#visualizador"><i></i>Faróis<small>Lâmpada e lente</small></a>
+      <a class="hv-tag hv-t2" data-i="2" data-parte="rodas" href="#visualizador"><i></i>Rodas<small>Freios</small></a>
+      <a class="hv-tag hv-t3" data-i="3" data-parte="lanterna" href="#visualizador"><i></i>Lanternas<small>LED</small></a>
+      <a class="hv-tag hv-t4" data-i="4" data-parte="retrovisor" href="#visualizador"><i></i>Retrovisores<small>Espelho</small></a>
     </div>
   </div>
   <div class="ep-rolar" aria-hidden="true">role<i></i></div>
@@ -404,4 +422,4 @@
 </footer>
 </div>
 <script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
-<script type="module" src="https://cdn.jsdelivr.net/gh/alexiskara/autoford-carros3d@ecbbff376b9aa011b7f925a6a1c5a047a967e16c/app/encontre-pecas.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/alexiskara/autoford-carros3d@62460956dc52ba3b0f7f9bc5657c85fcd1ecad04/app/encontre-pecas.js"></script>
