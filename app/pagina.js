@@ -84,7 +84,7 @@ const mv = $('c3d-mv');
 const seguro = (u) => typeof u === 'string' && /^(https?:\/\/|\/)/.test(u);
 const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
 const reduz = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-let carros = [], atual = null, zonaAtual = null, seq = 0, arrasto = null, ano = ler('c3d_ano2') || '';
+let carros = [], atual = null, zonaAtual = null, seq = 0, arrasto = null, ano = ''; /* ano do veículo desativado: o seletor foi removido e o ano nunca filtra a busca */
 const cache = {};
 
 let MOTION = null;
@@ -1025,7 +1025,7 @@ function abrirPorNome() {
   let melhor = null, pontos = 0;
   carros.forEach((c) => { const m = normaliza(c.model), b = normaliza(c.brand); let p = 0; if (resto.includes(m)) p += 10 + m.length; if (resto.includes(b)) p += 3; if (m.includes(resto) && resto.length > 1) p += 5; if (p > pontos) { pontos = p; melhor = c; } });
   if (!melhor) { msg.textContent = 'Ainda não temos o 3D desse modelo. Use as marcas abaixo ou a busca da loja.'; track('c3d_nome_sem_modelo', { texto: txt }); return; }
-  if (am) { ano = am[0]; guardar('c3d_ano2', ano); setAnoSel(); }
+  if (false && am) { ano = am[0]; guardar('c3d_ano2', ano); setAnoSel(); }
   msg.textContent = 'Abrindo ' + melhor.brand + ' ' + melhor.model + (ano ? ' ' + ano : '');
   abrir(melhor); track('c3d_nome', { carro: melhor.id });
 }
@@ -1040,7 +1040,7 @@ async function buscarPlaca() {
     const marca = d.marca || d.brand || d.MARCA || '', modelo = d.modelo || d.model || d.MODELO || '', anoV = d.ano || d.anoModelo || d.year || d.ANO || '';
     const mb = normaliza(marca), mm = normaliza(modelo);
     const achado = carros.find((c) => mb.includes(normaliza(c.brand)) && mm.includes(normaliza(c.model)));
-    if (anoV && /^\d{4}/.test(String(anoV))) { ano = String(anoV).slice(0, 4); guardar('c3d_ano2', ano); setAnoSel(); }
+    if (false && anoV && /^\d{4}/.test(String(anoV))) { ano = String(anoV).slice(0, 4); guardar('c3d_ano2', ano); setAnoSel(); }
     if (achado) { msg.textContent = 'Encontramos: ' + achado.brand + ' ' + achado.model + (ano ? ' ' + ano : ''); abrir(achado); }
     else { msg.textContent = 'Ainda não temos o 3D de ' + (marca + ' ' + modelo).trim() + '. Busque as peças na loja.'; }
   } catch (e) { msg.textContent = 'Não foi possível consultar a placa agora.'; }
@@ -1147,7 +1147,7 @@ $('c3d-zap').addEventListener('click', () => track('c3d_compartilhar', { canal: 
 montarMarcas();
 iniciarGaveta();
 const prm = new URLSearchParams(location.search);
-const pAno = prm.get('ano'); if (pAno && /^\d{4}$/.test(pAno)) { ano = pAno; setAnoSel(); }
+const pAno = prm.get('ano'); if (false && pAno && /^\d{4}$/.test(pAno)) { ano = pAno; setAnoSel(); }
 const inicial = carros.find((c) => c.id === prm.get('carro')) || carros.find((c) => c.id === ler('c3d_carro')) || carros[0];
 abrir(inicial);
 const pParte = prm.get('parte'); if (pParte && ZONAS[pParte]) escolher(pParte, true);
@@ -1155,7 +1155,7 @@ const pParte = prm.get('parte'); if (pParte && ZONAS[pParte]) escolher(pParte, t
 window.__c3dAbrir = (d) => {
   d = d || {};
   const c = d.carro ? carros.find((x) => x.id === d.carro) : null;
-  if (d.ano && /^\d{4}$/.test(String(d.ano))) { ano = String(d.ano); setAnoSel(); }
+  if (false && d.ano && /^\d{4}$/.test(String(d.ano))) { ano = String(d.ano); setAnoSel(); }
   if (c && (!atual || atual.id !== c.id)) abrir(c);
   if (d.parte && ZONAS[d.parte]) setTimeout(() => escolher(d.parte, true), c ? 350 : 0);
 };

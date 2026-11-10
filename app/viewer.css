@@ -102,7 +102,7 @@
 .c3d-garagem[hidden]{display:none}
 .c3d-garagem b{color:var(--acc2)}
 .c3d-garagem button{margin-left:auto;padding:5px 12px;border-radius:99px;border:0;background:rgba(255,255,255,.1);font-size:12px}
-.c3d-ano{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;color:var(--mudo)}
+.c3d-ano{display:none!important;align-items:center;gap:8px;margin-top:12px;font-size:13px;color:var(--mudo)}
 .c3d-ano select{flex:1;padding:8px 10px;border-radius:10px;border:0;background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px var(--linha);color:var(--txt);font:inherit}
 .c3d-ano select option{color:#111}
 .c3d-sel-bd{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
