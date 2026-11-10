@@ -1407,6 +1407,7 @@ async function mostrarPecas(z) {
   }
   if (!prods.length) {
     const v = el('div', 'c3d-vazio'); v.appendChild(el('strong', null, 'Nenhuma peça encontrada')); v.appendChild(document.createTextNode('Ainda não há ' + Z.nome.toLowerCase() + ' cadastrado para o ' + atual.model + '. Veja as demais peças do modelo ou fale com a gente.'));
+    v.appendChild(botaoSemelhantes(z));
     if (WHATSAPP) { const w = el('a', 'c3d-btn c3d-zap', 'Pedir esta peça no WhatsApp'); w.style.marginTop = '14px'; w.target = '_blank'; w.rel = 'noopener'; w.href = 'https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent('Olá! Procuro ' + Z.nome.toLowerCase() + ' para ' + atual.brand + ' ' + atual.model + (ano ? ' ' + ano : '') + '.'); v.appendChild(w); }
     box.appendChild(v); relacionadas(z, box);
     $('c3d-ph-sub').textContent = '0 produtos'; track('c3d_sem_resultado', { carro: atual.id, parte: z, ano: ano || '' }); return;
@@ -1414,6 +1415,14 @@ async function mostrarPecas(z) {
   track('c3d_resultados', { carro: atual.id, parte: z, quantidade: prods.length, nivel: tipo });
   $('c3d-ph-sub').textContent = prods.length + (prods.length > 1 ? ' produtos' : ' produto') + (tipo === 'catalogo' ? ' para o ' + atual.model : tipo === 'modelo' ? (prods.length > 1 ? ' compatíveis' : ' compatível') + ' com o ' + atual.model : tipo === 'marca' ? ' da marca ' + atual.brand + ' (confira a compatibilidade)' : ' relacionados (confira a compatibilidade)');
   const ul = el('ul', 'c3d-lista');
+  montarItens(ul, prods, z, tipo);
+  box.appendChild(ul);
+  entradaLista(ul);
+  box.appendChild(botaoSemelhantes(z));
+  relacionadas(z, box);
+}
+
+function montarItens(ul, prods, z, tipo) {
   prods.forEach((p, i) => {
     if (!seguro(p.url)) return;
     const li = el('li', 'c3d-item'); li.style.animationDelay = (i * 40) + 'ms';
@@ -1430,6 +1439,7 @@ async function mostrarPecas(z) {
     if (a1 && a0 && a0 > a1) bd.appendChild(el('span', 'c3d-bd off', '-' + Math.round((1 - a1 / a0) * 100) + '%'));
     if (p._c === 2) bd.appendChild(el('span', 'c3d-bd ok', 'Serve no ' + atual.model + (p.anos && p.anos.length ? ' \u00b7 ' + p.anos[0] + (p.anos[1] && p.anos[1] !== p.anos[0] ? '\u2013' + p.anos[1] : '') : '')));
     else if (p._c === 1) bd.appendChild(el('span', 'c3d-bd ok', 'Universal'));
+    else if (tipo === 'semelhante') bd.appendChild(el('span', 'c3d-bd chk', 'Semelhante \u00b7 confira a compatibilidade'));
     else if (p._c === 0 && tipo === 'catalogo') bd.appendChild(el('span', 'c3d-bd chk', 'Confira a compatibilidade'));
     if (ano) { const fx = faixaAno(p.nome); const serve = fx && +ano >= fx[0] && +ano <= fx[1]; bd.appendChild(el('span', 'c3d-bd ' + (serve ? 'ok' : 'chk'), serve ? 'Serve no ' + ano : 'Confira o ano')); }
     if (bd.children.length) tx.appendChild(bd);
@@ -1444,9 +1454,47 @@ async function mostrarPecas(z) {
     li.appendChild(acoes);
     ul.appendChild(li);
   });
-  box.appendChild(ul);
-  entradaLista(ul);
-  relacionadas(z, box);
+}
+/* ===== Produtos semelhantes: amplia a busca (peças irmãs, sistema e modelo) quando não há o produto exato ===== */
+function termosSemelhantes(z) {
+  const Z = ZONAS[z], mq = Z.maq && ZONAS[Z.maq], termos = [];
+  const add = (t) => { t = semAcento(String(t || '')).trim(); if (t && termos.indexOf(t) < 0) termos.push(t); };
+  add(Z.termo + ' ' + atual.model); add(Z.termo);
+  semAcento(Z.termo).split(/\s+/).filter((w) => w.length > 3).forEach(add);
+  (RELACIONADAS[z] || []).forEach((k) => { if (ZONAS[k]) add(ZONAS[k].termo); });
+  if (mq) { add(mq.termo); add(mq.nome); }
+  add(atual.brand + ' ' + atual.model);
+  return termos;
+}
+function botaoSemelhantes(z) {
+  const b = el('button', 'c3d-btn sec c3d-sem', 'Ver produtos semelhantes'); b.type = 'button';
+  b.style.cssText = 'margin:14px 0 0;width:100%;border:0;cursor:pointer;font-family:inherit;background:rgba(255,122,61,.16);box-shadow:inset 0 0 0 1px #ff7a3d';
+  b.onclick = () => { track('c3d_semelhantes_clique', { carro: atual.id, parte: z }); mostrarSemelhantes(z); };
+  return b;
+}
+async function mostrarSemelhantes(z) {
+  const Z = ZONAS[z], meu = ++seq, box = $('c3d-pc');
+  $('c3d-voltar').hidden = false; $('c3d-ph-tag').textContent = 'Produtos semelhantes'; $('c3d-ph-tit').textContent = Z.nome; entradaTitulo();
+  $('c3d-ph-sub').textContent = 'Buscando produtos parecidos na loja\u2026';
+  box.textContent = ''; const esq = el('div', 'c3d-lista'); for (let i = 0; i < 4; i++) esq.appendChild(el('div', 'c3d-esq')); box.appendChild(esq);
+  const vistos = new Set(), achados = [];
+  const junta = (arr) => (arr || []).forEach((pr) => { if (pr && pr.url && !vistos.has(pr.url)) { vistos.add(pr.url); achados.push(pr); } });
+  if (CAT) [z].concat(RELACIONADAS[z] || [], Z.maq ? [Z.maq] : []).forEach((k) => junta(produtosDaZona(k)));
+  const termos = termosSemelhantes(z);
+  for (let i = 0; i < termos.length && achados.length < 12; i++) { try { junta(await buscar(termos[i])); } catch (e) {} if (meu !== seq) return; }
+  if (meu !== seq) return;
+  box.textContent = '';
+  track('c3d_semelhantes', { carro: atual.id, parte: z, quantidade: achados.length });
+  if (achados.length) {
+    const ul = el('ul', 'c3d-lista'); montarItens(ul, achados.slice(0, 12), z, 'semelhante'); box.appendChild(ul); entradaLista(ul);
+    $('c3d-ph-sub').textContent = achados.length + (achados.length > 1 ? ' produtos semelhantes' : ' produto semelhante') + '. Podem não servir no ' + atual.model + ': confira a compatibilidade.';
+  } else {
+    const v = el('div', 'c3d-vazio'); v.appendChild(el('strong', null, 'Nenhum produto semelhante encontrado')); v.appendChild(document.createTextNode('Veja todas as peças do ' + atual.model + ' na loja ou fale com a gente.'));
+    if (WHATSAPP) { const w = el('a', 'c3d-btn c3d-zap', 'Pedir esta peça no WhatsApp'); w.style.marginTop = '14px'; w.target = '_blank'; w.rel = 'noopener'; w.href = 'https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent('Olá! Procuro ' + Z.nome.toLowerCase() + ' para ' + atual.brand + ' ' + atual.model + '.'); v.appendChild(w); }
+    box.appendChild(v); $('c3d-ph-sub').textContent = '0 produtos';
+  }
+  const vb = el('button', 'c3d-btn sec', 'Voltar para ' + Z.nome); vb.type = 'button'; vb.style.cssText = 'margin:14px 0 0;width:100%;border:0;cursor:pointer;font-family:inherit'; vb.onclick = () => mostrarPecas(z); box.appendChild(vb);
+  const verTodas = $('c3d-ver'); verTodas.hidden = false; verTodas.href = urlBusca(termos[1] || termos[0]); verTodas.textContent = 'Ver na loja: ' + (termos[1] || termos[0]);
 }
 
 document.querySelectorAll('.c3d-mapa .z').forEach((g) => { g.setAttribute('tabindex', '0'); g.setAttribute('role', 'button'); g.setAttribute('aria-label', ZONAS[g.dataset.z].nome); g.onclick = () => escolher(g.dataset.z, true); g.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); escolher(g.dataset.z, true); } }; });
