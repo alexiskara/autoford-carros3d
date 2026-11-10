@@ -144,7 +144,7 @@ function inclinar(el) {
     const mv = document.createElement('model-viewer');
     mv.setAttribute('camera-controls', ''); mv.setAttribute('auto-rotate', ''); mv.setAttribute('auto-rotate-delay', '0'); mv.setAttribute('rotation-per-second', '18deg');
     mv.setAttribute('interaction-prompt', 'none'); mv.setAttribute('disable-zoom', ''); mv.setAttribute('shadow-intensity', '1.2'); mv.setAttribute('shadow-softness', '1');
-    mv.setAttribute('exposure', '1.1'); mv.setAttribute('environment-image', 'neutral'); mv.setAttribute('camera-orbit', '35deg 76deg 118%'); mv.setAttribute('touch-action', 'pan-y');
+    mv.setAttribute('exposure', '1.1'); mv.setAttribute('environment-image', 'neutral'); mv.setAttribute('camera-orbit', '35deg 76deg 92%'); mv.setAttribute('touch-action', 'pan-y');
     mv.setAttribute('alt', 'Carro em 3D que gira sozinho'); mv.setAttribute('reveal', 'auto');
     try { customElements.get('model-viewer').meshoptDecoderLocation = 'https://cdn.jsdelivr.net/npm/meshoptimizer@0.22.0/meshopt_decoder.js'; } catch (e) {}
     mv.poster = BASE + '/posters/poster-' + c.id + '.webp'; mv.src = BASE + '/assets/' + c.file;
@@ -174,6 +174,108 @@ function inclinar(el) {
     }, { once: true });
   };
   if ('IntersectionObserver' in window) { const io = new IntersectionObserver((e) => { if (e[0].isIntersecting) { io.disconnect(); montar(); } }, { rootMargin: '200px' }); io.observe(alvo); } else montar();
+}
+
+/* ---------- hero: painel de varredura (Motion: entrada, parallax e saída por rolagem · anime.js: scan, contadores, digitação, texto embaralhado) ---------- */
+{
+  const hero = $('#hero');
+  if (hero) {
+    const palco = $('#hv-palco'), tilt = $('#hv-tilt'), txt = $('.hv-txt', hero), h1 = $('#ep-h1');
+    const PEC = [
+      { n: 'Capô', d: 'Motor, radiador e filtros', a: '#ff7a3d', b: '#ff3d6e' },
+      { n: 'Faróis', d: 'Lâmpada, lente e refletor', a: '#4cc9ff', b: '#3d7bff' },
+      { n: 'Rodas', d: 'Freios, discos e suspensão', a: '#ff4d6d', b: '#ff8a4c' },
+      { n: 'Lanternas', d: 'Lente, LED e soquete', a: '#ffb43d', b: '#ff7a3d' },
+      { n: 'Retrovisores', d: 'Espelho, capa e pisca', a: '#a06bff', b: '#3d7bff' }
+    ];
+    const mo = (el, kf, op) => { if (el && M && M.animate) { try { return M.animate(el, kf, op); } catch (e) {} } return null; };
+    const esc = (n) => (M && M.stagger ? M.stagger(n) : 0);
+    /* título dividido em palavras com máscara (a entrada sobe cada palavra) */
+    $$('.hv-l', h1).forEach((l) => {
+      const palavras = l.textContent.trim().split(/\s+/); l.textContent = '';
+      palavras.forEach((p, i) => { const w = document.createElement('span'), s = document.createElement('span'); w.className = 'hv-w'; w.setAttribute('aria-hidden', 'true'); s.textContent = p; w.appendChild(s); l.appendChild(w); if (i < palavras.length - 1) l.appendChild(document.createTextNode(' ')); });
+    });
+    /* texto embaralhado (anime.js) */
+    const ABC = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789';
+    const embaralha = (el, texto) => {
+      const tk = (el._tk = (el._tk || 0) + 1);
+      if (!A || reduz) { el.textContent = texto; return; }
+      const o = { p: 0 };
+      try { A.animate(o, { p: 1, duration: 600, ease: 'linear', onUpdate: () => { if (el._tk !== tk) return; const n = Math.floor(o.p * texto.length); let s = texto.slice(0, n); for (let q = n; q < texto.length; q++) s += texto[q] === ' ' ? ' ' : ABC[(Math.random() * ABC.length) | 0]; el.textContent = s; }, onComplete: () => { if (el._tk === tk) el.textContent = texto; } }); } catch (e) { el.textContent = texto; }
+    };
+    /* sugestões de veículo e placeholder que digita sozinho */
+    const inp = $('#ep-q'), form = $('#ep-busca'), sug = $('#hv-sug');
+    if (sug && carros.length) {
+      const s = document.createElement('small'); s.textContent = 'Populares'; sug.appendChild(s);
+      carros.slice(0, 4).forEach((c) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = nomeCarro(c); b.addEventListener('click', () => { inp.value = nomeCarro(c); track('ep_hero_sug', { carro: c.id }); form.requestSubmit ? form.requestSubmit() : form.dispatchEvent(new Event('submit', { cancelable: true })); }); sug.appendChild(b); });
+    }
+    const EX = (carros.length ? carros.slice(0, 4).map((c, i) => nomeCarro(c) + ' ' + [2019, 2021, 2018, 2020][i % 4]) : ['Argo 2019', 'Onix 2018', 'Compass 2020']).map((t) => 'Ex.: ' + t);
+    let digita = 0, parou = false;
+    const digitar = () => {
+      if (parou || reduz || !A) return;
+      const t = EX[digita++ % EX.length], o = { n: 0 };
+      try { A.animate(o, { n: t.length, duration: 55 * t.length, ease: 'linear', onUpdate: () => { if (!parou) inp.placeholder = t.slice(0, Math.round(o.n)) + '|'; }, onComplete: () => { setTimeout(() => { if (!parou) apagar(t); }, 1500); } }); } catch (e) {}
+    };
+    const apagar = (t) => { const o = { n: t.length }; try { A.animate(o, { n: 5, duration: 28 * t.length, ease: 'linear', onUpdate: () => { if (!parou) inp.placeholder = t.slice(0, Math.round(o.n)) + '|'; }, onComplete: () => { if (!parou) setTimeout(digitar, 250); } }); } catch (e) {} };
+    inp.addEventListener('focus', () => { parou = true; inp.placeholder = 'Qual é o seu carro? Ex.: Argo 2019'; });
+    inp.addEventListener('blur', () => { if (!inp.value) { parou = false; digitar(); } });
+
+    /* ciclo "peça detectada": muda a cor do hero, o painel e a etiqueta ativa */
+    const tags = $$('.hv-tag', hero); let k = -1, timer = 0;
+    const ciclo = () => {
+      k = (k + 1) % PEC.length; const p = PEC[k];
+      hero.style.setProperty('--hv-a', p.a); hero.style.setProperty('--hv-b', p.b);
+      embaralha($('#hv-det'), p.n); $('#hv-det-d').textContent = p.d;
+      tags.forEach((t, i) => t.classList.toggle('on', i === k));
+    };
+    const liga = () => { clearInterval(timer); timer = setInterval(() => { if (!document.hidden) ciclo(); }, 3400); };
+    tags.forEach((t, i) => t.addEventListener('mouseenter', () => { k = i - 1; ciclo(); liga(); }));
+
+    /* entrada */
+    const entrada = () => {
+      hero.classList.remove('hv-pre');
+      if (reduz) return;
+      mo($$('.hv-w > span', hero), { transform: ['translateY(112%) rotate(5deg)', 'translateY(0%) rotate(0deg)'] }, { duration: .95, ease: [0.16, 1, 0.3, 1], delay: esc(.075) });
+      mo($('.ep-tag', hero), { opacity: [0, 1], transform: ['translateY(-14px)', 'translateY(0px)'] }, { duration: .6, ease: 'easeOut' });
+      mo($$('.ep-sub, .ep-busca, .hv-sug, .hv-stats', hero), { opacity: [0, 1], transform: ['translateY(26px)', 'translateY(0px)'] }, { duration: .8, ease: [0.16, 1, 0.3, 1], delay: M && M.stagger ? M.stagger(.1, { startDelay: .45 }) : 0 });
+      if (A) {
+        try {
+          palco.style.opacity = '1';
+          A.animate(palco, { clipPath: ['circle(0% at 72% 50%)', 'circle(80% at 72% 50%)'], duration: 1500, ease: 'outExpo', onComplete: () => { palco.style.clipPath = 'none'; } });
+          A.animate($$('.hv-colchetes path', hero), { strokeDashoffset: [1, 0], duration: 1300, delay: A.stagger(160, { start: 500 }), ease: 'inOutQuart' });
+          A.animate('.hv-scan', { left: ['-8%', '100%'], duration: 4200, ease: 'inOutSine', loop: true, alternate: true });
+          A.animate(tags, { translateY: [-5, 5], duration: 2900, delay: A.stagger(380), alternate: true, loop: true, ease: 'inOutSine' });
+        } catch (e) {}
+      }
+      mo($$('.hv-tag, .hv-hud', hero), { opacity: [0, 1], transform: ['scale(.8)', 'scale(1)'] }, { duration: .6, ease: [0.34, 1.56, 0.64, 1], delay: M && M.stagger ? M.stagger(.09, { startDelay: .9 }) : 0 });
+      setTimeout(digitar, 1800);
+    };
+    entrada(); ciclo(); liga();
+
+    if (!reduz) {
+      /* parallax do mouse: aurora, inclinação do palco e leitura de coordenadas */
+      if (M && matchMedia('(hover: hover) and (pointer: fine)').matches) {
+        const aur = $('.hv-aurora > div', hero), ex = $('#hv-x'), ey = $('#hv-y'); let aguarda = false;
+        hero.addEventListener('pointermove', (e) => {
+          if (aguarda) return; aguarda = true;
+          requestAnimationFrame(() => {
+            aguarda = false; const r = hero.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
+            mo(aur, { transform: 'translate3d(' + (x * -50).toFixed(1) + 'px,' + (y * -36).toFixed(1) + 'px,0)' }, { duration: 1.2, ease: 'easeOut' });
+            mo(tilt, { transform: 'perspective(1200px) rotateY(' + (x * 10).toFixed(2) + 'deg) rotateX(' + (-y * 8).toFixed(2) + 'deg)' }, { duration: .7, ease: 'easeOut' });
+            if (ex) { ex.textContent = String(Math.round((x + .5) * 999)).padStart(3, '0'); ey.textContent = String(Math.round((y + .5) * 999)).padStart(3, '0'); }
+          });
+        });
+        hero.addEventListener('pointerleave', () => { mo(tilt, { transform: 'perspective(1200px) rotateY(0deg) rotateX(0deg)' }, { duration: .9, ease: 'easeOut' }); });
+      }
+      /* saída por rolagem: o texto sobe e some, o palco recua */
+      if (M && M.scroll) {
+        try {
+          M.scroll(M.animate(txt, { opacity: [1, 0], transform: ['translateY(0px)', 'translateY(-80px)'] }, { ease: 'linear' }), { target: hero, offset: ['start start', '75% start'] });
+          M.scroll(M.animate(palco, { transform: ['scale(1)', 'scale(.9)'], opacity: [1, .25] }, { ease: 'linear' }), { target: hero, offset: ['start start', 'end start'] });
+        } catch (e) {}
+      }
+    }
+  }
 }
 
 /* ---------- fundo de linhas fluidas ---------- */
