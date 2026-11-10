@@ -19,6 +19,9 @@ const ZONAS = {
   'suspensao': { nome: 'Suspensão', termo: 'suspensão', cam: [90, 85, 65] },
   'freios': { nome: 'Freios', termo: 'freio', cam: [90, 85, 65] },
   'escapamento': { nome: 'Escapamento', termo: 'escapamento', cam: [180, 85, 75] },
+  'embreagem': { nome: 'Embreagem', termo: 'embreagem', cam: [0, 75, 75] },
+  'turbo': { nome: 'Turbo', termo: 'turbina', cam: [0, 52, 70] },
+  'alternador': { nome: 'Alternador', termo: 'alternador', cam: [0, 52, 70] },
   /* peças do motor: só aparecem dentro do motor 3D (clicáveis nele) e nos atalhos de "Motor" */
   'cabecote': { nome: 'Cabeçote', termo: 'cabeçote', cam: [0, 52, 70], oculta: 1 },
   'valvulas': { nome: 'Válvulas', termo: 'válvula', cam: [0, 52, 70], oculta: 1 },
@@ -37,6 +40,7 @@ const ZONAS = {
 };
 /* Motor 3D (teardown), carregado só quando alguém escolhe "Motor". window.C3D_MOTOR_JS substitui o endereço em testes locais. */
 const MOTOR_JS = (typeof window.C3D_MOTOR_JS === 'string') ? window.C3D_MOTOR_JS : new URL('./motor3d.js', import.meta.url).href;
+const MAQUINAS_JS = (typeof window.C3D_MAQUINAS_JS === 'string') ? window.C3D_MAQUINAS_JS : new URL('./maquinas3d.js', import.meta.url).href;
 /* Carros exibidos no seletor (ids do cars.json). Vazio = mostra todos. */
 const CARROS_EXEMPLO = ['chevrolet-onix'];
 const CORES = [['Original', null], ['Branco', [.9, .9, .88]], ['Prata', [.56, .59, .63]], ['Preto', [.02, .02, .025]], ['Vermelho', [.62, .0, .03]], ['Azul', [.02, .12, .52]], ['Verde', [.0, .26, .11]], ['Amarelo', [.96, .66, .0]]];
@@ -901,36 +905,41 @@ function marcarZona(z) {
   document.querySelectorAll('.c3d-zonas button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.z === z));
 }
 
-let motor = null, motorCarregando = null;
-function sincronizarMotor() { if (motor) motor.selecionar(zonaAtual && zonaAtual !== 'motor' ? zonaAtual : null); }
+let motor = null, motorTipo = null, motorSeq = 0;
+function sincronizarMotor() { if (motor) motor.selecionar(zonaAtual && zonaAtual !== motorTipo ? zonaAtual : null); }
 function setExplodir(on) { if (motor) motor.explodir(on); const b = $('c3d-explodir'); if (b) b.setAttribute('aria-pressed', on ? 'true' : 'false'); }
-function mostrarMotor() {
+/* mostra no palco o modelo 3D da peça (motor, freios, suspensão...) no lugar do carro */
+function mostrarMotor(tipo) {
   const palco = $('c3d-palco'), box = $('c3d-motor3d');
   palco.classList.add('c3d-modo-motor'); box.hidden = false;
-  if (motor) { sincronizarMotor(); return; }
-  if (motorCarregando) return;
-  box.textContent = ''; box.appendChild(el('div', 'c3d-motor-msg', 'Carregando motor 3D\u2026'));
-  motorCarregando = import(MOTOR_JS).then((mod) => {
-    motorCarregando = null;
-    if (!palco.classList.contains('c3d-modo-motor')) return;
+  if (motor && motorTipo === tipo) { sincronizarMotor(); return; }
+  if (motor) { motor.destruir(); motor = null; motorTipo = null; }
+  const meu = ++motorSeq;
+  box.textContent = ''; box.appendChild(el('div', 'c3d-motor-msg', 'Carregando modelo 3D\u2026'));
+  const onParte = (k) => { if (ZONAS[k]) escolher(k, false); };
+  import(tipo === 'motor' ? MOTOR_JS : MAQUINAS_JS).then((mod) => {
+    if (meu !== motorSeq || !palco.classList.contains('c3d-modo-motor')) return;
     box.textContent = '';
-    motor = mod.montarMotor(box, { onParte: (k) => { if (ZONAS[k]) escolher(k, false); } });
+    motor = tipo === 'motor' ? mod.montarMotor(box, { onParte: onParte }) : mod.montarMaquina(box, tipo, { onParte: onParte });
+    motorTipo = tipo;
     box.appendChild(el('div', 'c3d-motor-dica', 'Arraste para girar \u00b7 clique em uma peça'));
     setExplodir(true); sincronizarMotor();
   }).catch(() => {
-    motorCarregando = null; box.textContent = '';
-    box.appendChild(el('div', 'c3d-motor-msg', 'Não foi possível carregar o motor 3D. Use a lista de peças ao lado.'));
-    track('c3d_motor_erro');
+    if (meu !== motorSeq) return;
+    box.textContent = '';
+    box.appendChild(el('div', 'c3d-motor-msg', 'Não foi possível carregar o modelo 3D. Use a lista de peças ao lado.'));
+    track('c3d_motor_erro', { tipo: tipo });
   });
 }
 function esconderMotor() {
+  motorSeq++;
   $('c3d-palco').classList.remove('c3d-modo-motor'); $('c3d-motor3d').hidden = true;
-  if (motor) { motor.destruir(); motor = null; }
+  if (motor) { motor.destruir(); motor = null; motorTipo = null; }
 }
 function escolher(z, mover) {
   zonaAtual = z; marcarZona(z); $('c3d-dica').classList.add('off'); sincronizarUrl(z); track('c3d_parte', { carro: atual.id, parte: z, origem: mover ? 'lista' : 'clique3d' });
   const Z = ZONAS[z];
-  if (z === 'motor' || Z.oculta) mostrarMotor(); else esconderMotor();
+  if (Z.maq) mostrarMotor(Z.maq); else esconderMotor();
   if (mover || EXPL[z]) mv.querySelector('.c3d-pin').hidden = true; focarZona(z); irGaveta('meio');
   mostrarPecas(z);
 }
@@ -961,6 +970,28 @@ const RELACIONADAS = {
 const PECAS_MOTOR = ['cabecote', 'valvulas', 'comando', 'pistao', 'virabrequim', 'volante', 'correia', 'vela', 'coletor', 'carter', 'junta', 'bomba-agua', 'filtro-oleo'];
 RELACIONADAS.motor = PECAS_MOTOR;
 PECAS_MOTOR.forEach((k, i) => { RELACIONADAS[k] = ['motor', PECAS_MOTOR[(i + 1) % PECAS_MOTOR.length], PECAS_MOTOR[(i + 2) % PECAS_MOTOR.length], PECAS_MOTOR[(i + 3) % PECAS_MOTOR.length]]; });
+/* Peças de cada modelo 3D: [chave usada no 3D, nome exibido, termo buscado na loja] */
+const GRUPOS = {
+  freios: [['disco-freio', 'Disco de freio', 'disco de freio'], ['pastilha', 'Pastilhas de freio', 'pastilha de freio'], ['pinca', 'Pinça de freio', 'pinça de freio'], ['cubo-roda', 'Cubo de roda', 'cubo de roda'], ['flexivel-freio', 'Flexível de freio', 'flexível de freio']],
+  suspensao: [['amortecedor', 'Amortecedor', 'amortecedor'], ['mola', 'Mola helicoidal', 'mola'], ['batente', 'Kit batente e coifa', 'kit batente'], ['coxim', 'Coxim do amortecedor', 'coxim amortecedor'], ['manga', 'Manga de eixo', 'manga de eixo'], ['pivo', 'Pivô de suspensão', 'pivô'], ['bandeja', 'Bandeja', 'bandeja'], ['estabilizadora', 'Barra estabilizadora', 'barra estabilizadora'], ['bieleta', 'Bieleta', 'bieleta']],
+  radiador: [['ventoinha', 'Eletroventilador', 'eletroventilador'], ['mangueira', 'Mangueiras do radiador', 'mangueira radiador'], ['tampa-radiador', 'Tampa do radiador', 'tampa radiador'], ['reservatorio', 'Reservatório de expansão', 'reservatório expansão'], ['termostato', 'Válvula termostática', 'válvula termostática']],
+  cambio: [['carcaca-cambio', 'Carcaça do câmbio', 'carcaça câmbio'], ['engrenagens', 'Engrenagens do câmbio', 'engrenagem câmbio'], ['eixos-cambio', 'Eixos do câmbio', 'eixo câmbio'], ['sincronizador', 'Sincronizador', 'sincronizador'], ['garfo-cambio', 'Garfo de engate', 'garfo câmbio'], ['rolamento-cambio', 'Rolamentos do câmbio', 'rolamento câmbio']],
+  escapamento: [['coletor-esc', 'Coletor de escape', 'coletor escape'], ['sonda', 'Sonda lambda', 'sonda lambda'], ['catalisador', 'Catalisador', 'catalisador'], ['flexivel-esc', 'Flexível do escapamento', 'flexível escapamento'], ['silencioso-int', 'Silencioso intermediário', 'silencioso intermediário'], ['silencioso', 'Silencioso traseiro', 'silencioso traseiro'], ['ponteira', 'Ponteira', 'ponteira'], ['coxim-esc', 'Coxim do escapamento', 'coxim escapamento']],
+  embreagem: [['volante-emb', 'Volante do motor', 'volante'], ['disco-embreagem', 'Disco de embreagem', 'disco de embreagem'], ['plato', 'Platô', 'platô'], ['rolamento-embreagem', 'Rolamento de embreagem', 'rolamento embreagem'], ['garfo-embreagem', 'Garfo de embreagem', 'garfo embreagem']],
+  turbo: [['turbina', 'Carcaça da turbina', 'turbina'], ['compressor', 'Carcaça do compressor', 'compressor turbo'], ['cartucho', 'Cartucho (CHRA)', 'cartucho turbina'], ['rotor-turbo', 'Eixo e rotor', 'eixo turbina'], ['wastegate', 'Válvula wastegate', 'wastegate']],
+  alternador: [['carcaca-alt', 'Carcaça do alternador', 'carcaça alternador'], ['estator', 'Estator', 'estator'], ['rotor-alt', 'Rotor do alternador', 'rotor alternador'], ['polia-alt', 'Polia do alternador', 'polia alternador'], ['regulador', 'Regulador de voltagem', 'regulador de voltagem'], ['retificador', 'Ponte retificadora', 'ponte retificadora'], ['escovas', 'Porta-escovas', 'porta escovas']]
+};
+ZONAS.motor.maq = 'motor'; PECAS_MOTOR.forEach((k) => { ZONAS[k].maq = 'motor'; });
+const GRUPO_CHAVES = { motor: PECAS_MOTOR };
+Object.keys(GRUPOS).forEach((tipo) => {
+  ZONAS[tipo].maq = tipo;
+  GRUPOS[tipo].forEach(([k, nome, termo]) => { ZONAS[k] = { nome: nome, termo: termo, cam: [0, 52, 70], oculta: 1, maq: tipo }; });
+  GRUPO_CHAVES[tipo] = GRUPOS[tipo].map((g) => g[0]);
+});
+Object.keys(GRUPO_CHAVES).forEach((tipo) => {
+  const lista = GRUPO_CHAVES[tipo]; RELACIONADAS[tipo] = lista;
+  lista.forEach((k, i) => { RELACIONADAS[k] = [tipo, lista[(i + 1) % lista.length], lista[(i + 2) % lista.length], lista[(i + 3) % lista.length]]; });
+});
 function relacionadas(z, box) {
   const lista = RELACIONADAS[z]; if (!lista) return;
   const w = el('div', 'c3d-rel'); w.appendChild(el('span', null, 'Quem procura ' + ZONAS[z].nome.toLowerCase() + ' também procura'));
