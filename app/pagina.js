@@ -22,6 +22,12 @@ const ZONAS = {
   'embreagem': { nome: 'Embreagem', termo: 'embreagem', cam: [0, 75, 75] },
   'turbo': { nome: 'Turbo', termo: 'turbina', cam: [0, 52, 70] },
   'alternador': { nome: 'Alternador', termo: 'alternador', cam: [0, 52, 70] },
+  'bateria': { nome: 'Bateria', termo: 'bateria', cam: [0, 52, 70] },
+  'partida': { nome: 'Motor de partida', termo: 'motor de partida', cam: [0, 52, 70] },
+  'bomba-comb': { nome: 'Bomba de combustível', termo: 'bomba de combustível', cam: [0, 52, 70] },
+  'direcao': { nome: 'Direção', termo: 'caixa de direção', cam: [0, 52, 70] },
+  'limpador': { nome: 'Limpador de parabrisa', termo: 'limpador parabrisa', cam: [0, 60, 80] },
+  'distribuicao': { nome: 'Kit de distribuição', termo: 'kit de distribuição', cam: [0, 52, 70] },
   /* peças do motor: só aparecem dentro do motor 3D (clicáveis nele) e nos atalhos de "Motor" */
   'cabecote': { nome: 'Cabeçote', termo: 'cabeçote', cam: [0, 52, 70], oculta: 1 },
   'valvulas': { nome: 'Válvulas', termo: 'válvula', cam: [0, 52, 70], oculta: 1 },
@@ -979,7 +985,18 @@ const GRUPOS = {
   escapamento: [['coletor-esc', 'Coletor de escape', 'coletor escape'], ['sonda', 'Sonda lambda', 'sonda lambda'], ['catalisador', 'Catalisador', 'catalisador'], ['flexivel-esc', 'Flexível do escapamento', 'flexível escapamento'], ['silencioso-int', 'Silencioso intermediário', 'silencioso intermediário'], ['silencioso', 'Silencioso traseiro', 'silencioso traseiro'], ['ponteira', 'Ponteira', 'ponteira'], ['coxim-esc', 'Coxim do escapamento', 'coxim escapamento']],
   embreagem: [['volante-emb', 'Volante do motor', 'volante'], ['disco-embreagem', 'Disco de embreagem', 'disco de embreagem'], ['plato', 'Platô', 'platô'], ['rolamento-embreagem', 'Rolamento de embreagem', 'rolamento embreagem'], ['garfo-embreagem', 'Garfo de embreagem', 'garfo embreagem']],
   turbo: [['turbina', 'Carcaça da turbina', 'turbina'], ['compressor', 'Carcaça do compressor', 'compressor turbo'], ['cartucho', 'Cartucho (CHRA)', 'cartucho turbina'], ['rotor-turbo', 'Eixo e rotor', 'eixo turbina'], ['wastegate', 'Válvula wastegate', 'wastegate']],
-  alternador: [['carcaca-alt', 'Carcaça do alternador', 'carcaça alternador'], ['estator', 'Estator', 'estator'], ['rotor-alt', 'Rotor do alternador', 'rotor alternador'], ['polia-alt', 'Polia do alternador', 'polia alternador'], ['regulador', 'Regulador de voltagem', 'regulador de voltagem'], ['retificador', 'Ponte retificadora', 'ponte retificadora'], ['escovas', 'Porta-escovas', 'porta escovas']]
+  alternador: [['carcaca-alt', 'Carcaça do alternador', 'carcaça alternador'], ['estator', 'Estator', 'estator'], ['rotor-alt', 'Rotor do alternador', 'rotor alternador'], ['polia-alt', 'Polia do alternador', 'polia alternador'], ['regulador', 'Regulador de voltagem', 'regulador de voltagem'], ['retificador', 'Ponte retificadora', 'ponte retificadora'], ['escovas', 'Porta-escovas', 'porta escovas']],
+  retrovisor: [['capa-retro', 'Capa do retrovisor', 'capa retrovisor'], ['espelho-retro', 'Espelho do retrovisor', 'espelho retrovisor'], ['motor-retro', 'Atuador do espelho', 'motor retrovisor'], ['pisca-retro', 'Pisca do retrovisor', 'pisca retrovisor'], ['base-retro', 'Base do retrovisor', 'base retrovisor']],
+  farol: [['lente-farol', 'Lente do farol', 'lente farol'], ['moldura-farol', 'Moldura do farol', 'moldura farol'], ['projetor-farol', 'Projetor do farol', 'projetor farol'], ['refletor', 'Refletor do farol', 'refletor farol'], ['lampada-farol', 'Lâmpada do farol', 'lâmpada farol']],
+  lanterna: [['lente-lanterna', 'Lente da lanterna', 'lente lanterna'], ['placa-led', 'Placa de LED', 'placa led lanterna'], ['soquete-lanterna', 'Soquete e chicote', 'soquete lanterna']],
+  rodas: [['pneu', 'Pneu', 'pneu'], ['parafuso-roda', 'Parafusos de roda', 'parafuso roda'], ['calota', 'Calota central', 'calota'], ['valvula-pneu', 'Válvula do pneu', 'válvula pneu']],
+  portas: [['macaneta', 'Maçaneta', 'maçaneta'], ['vidro-porta', 'Vidro da porta', 'vidro porta'], ['fechadura', 'Fechadura', 'fechadura'], ['regulador-vidro', 'Regulador do vidro', 'regulador vidro'], ['motor-vidro', 'Motor do vidro', 'motor vidro'], ['borracha-porta', 'Borracha da porta', 'borracha porta']],
+  bateria: [['placas-bateria', 'Placas da bateria', 'bateria'], ['tampa-bateria', 'Tampa da bateria', 'tampa bateria'], ['terminal-bateria', 'Terminais da bateria', 'terminal bateria'], ['alca-bateria', 'Alça da bateria', 'alça bateria']],
+  partida: [['induzido', 'Induzido', 'induzido'], ['solenoide', 'Solenoide (automático)', 'automático partida'], ['bendix', 'Bendix', 'bendix'], ['escovas-partida', 'Escovas da partida', 'escova partida']],
+  'bomba-comb': [['flange-comb', 'Flange da bomba', 'flange bomba combustível'], ['filtro-comb', 'Filtro da bomba', 'filtro bomba combustível'], ['boia', 'Boia do tanque', 'boia combustível'], ['regulador-pressao', 'Regulador de pressão', 'regulador pressão combustível']],
+  direcao: [['cremalheira', 'Cremalheira', 'cremalheira'], ['pinhao', 'Pinhão da direção', 'pinhão direção'], ['coifa-direcao', 'Coifa da direção', 'coifa direção'], ['barra-axial', 'Barra axial', 'barra axial'], ['terminal-direcao', 'Terminal de direção', 'terminal direção']],
+  limpador: [['motor-limpador', 'Motor do limpador', 'motor limpador'], ['braco-limpador', 'Braço do limpador', 'braço limpador'], ['palheta', 'Palheta', 'palheta'], ['bico-esguicho', 'Bico do esguicho', 'esguicho']],
+  distribuicao: [['polia-comando', 'Polia do comando', 'polia comando'], ['polia-virabrequim', 'Polia do virabrequim', 'polia virabrequim'], ['bomba-dagua-kit', "Bomba d'água", "bomba d'agua"], ['tensor', 'Tensor', 'tensor correia'], ['polia-guia', 'Polia guia', 'polia guia']]
 };
 ZONAS.motor.maq = 'motor'; PECAS_MOTOR.forEach((k) => { ZONAS[k].maq = 'motor'; });
 const GRUPO_CHAVES = { motor: PECAS_MOTOR };
