@@ -349,7 +349,47 @@ $$('#ep-faq details').forEach((d) => {
     let ativo = -1, hl = -2, inst = null, cena = null, seqM = 0, modP = null, explodido = false, tLoc = 0, visivel = false;
     const modulo = () => modP || (modP = import(new URL('./maquinas3d.js', import.meta.url).href));
     const nomeDe = (c, k) => (k ? (c.nomes[k] || k) : 'Peças separadas');
-    const chipTexto = (c, k) => { const b = $('b', chip); if (!b) return; b.textContent = nomeDe(c, k); anim(chip, { transform: ['scale(.94)', 'scale(1)'] }, { duration: .35, ease: 'easeOut' }); };
+    /* anime.js: texto que "embaralha" até resolver */
+    const ABC = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789';
+    const embaralha = (el, texto) => {
+      const tk = (el._tk = (el._tk || 0) + 1);
+      if (!A) { el.textContent = texto; return; }
+      const o = { p: 0 };
+      try {
+        A.animate(o, { p: 1, duration: 650, ease: 'linear', onUpdate: () => {
+          if (el._tk !== tk) return;
+          const n = Math.floor(o.p * texto.length); let s = texto.slice(0, n);
+          for (let q = n; q < texto.length; q++) s += texto[q] === ' ' ? ' ' : ABC[(Math.random() * ABC.length) | 0];
+          el.textContent = s;
+        }, onComplete: () => { if (el._tk === tk) el.textContent = texto; } });
+      } catch (e) { el.textContent = texto; }
+    };
+    const chipTexto = (c, k) => { const b = $('b', chip); if (!b) return; embaralha(b, nomeDe(c, k)); anim(chip, { transform: ['scale(.94)', 'scale(1)'] }, { duration: .35, ease: 'easeOut' }); };
+    /* anime.js: rajada de faíscas na cor do capítulo */
+    const fxBox = $('.gp-fx', sec), moldura = $('.gp-moldura rect', sec);
+    const rajada = (cor) => {
+      if (!A || !fxBox) return;
+      const ps = [], fr = document.createDocumentFragment();
+      for (let q = 0; q < 24; q++) { const d = document.createElement('i'); d.style.background = cor; d.style.color = cor; fr.appendChild(d); ps.push(d); }
+      fxBox.appendChild(fr);
+      try { A.animate(ps, { translateX: () => (Math.random() - .5) * 560, translateY: () => (Math.random() - .5) * 380, scale: [1.5, 0], opacity: [1, 0], duration: 1100, delay: A.stagger(14, { from: 'center' }), ease: 'outExpo', onComplete: () => ps.forEach((p) => p.remove()) }); } catch (e) { ps.forEach((p) => p.remove()); }
+    };
+    /* anime.js: timeline de entrada do capítulo (linha do rótulo + moldura SVG se desenhando) */
+    const entradaTl = (el) => {
+      if (!A || !A.createTimeline) return;
+      try {
+        const linha = $('.gp-reg i', el), tl = A.createTimeline({ defaults: { ease: 'outExpo' } });
+        if (linha) tl.add(linha, { scaleX: [0, 1], duration: 900 }, 0);
+        if (moldura) tl.add(moldura, { strokeDashoffset: [1, 0], duration: 1500, ease: 'inOutQuart' }, 0);
+      } catch (e) {}
+    };
+    /* anime.js: contador do capítulo (01 → 02 ...) */
+    const contar = (de, para) => {
+      if (!num) return; const pad = (n) => String(n).padStart(2, '0');
+      if (!A || de < 0) { num.textContent = pad(para + 1); return; }
+      const o = { v: de + 1 };
+      try { A.animate(o, { v: para + 1, duration: 800, ease: 'outExpo', onUpdate: () => { num.textContent = pad(Math.round(o.v)); } }); } catch (e) { num.textContent = pad(para + 1); }
+    };
 
     const montar = async (i) => {
       const meu = ++seqM, c = CAP[i], velha = cena, instVelha = inst;
@@ -367,15 +407,17 @@ $$('#ep-faq details').forEach((d) => {
       } catch (e) { div.remove(); track('ep_giro_erro', { tipo: c.tipo }); }
     };
 
+    let ultimo = -1;
     const entrar = (i) => {
-      const c = CAP[i], el = caps[i];
+      const c = CAP[i], el = caps[i], ant = ultimo; ultimo = i;
       caps.forEach((x, n) => x.classList.toggle('on', n === i));
       pills.forEach((x, n) => { x.classList.toggle('on', n === i); x.classList.toggle('ok', n < i); });
       sec.style.setProperty('--gp-a', c.a); sec.style.setProperty('--gp-b', c.b);
       anim($$('.gp-l', el), { opacity: [0, 1], transform: ['translateY(44px) rotate(7deg)', 'translateY(0px) rotate(0deg)'], filter: ['blur(12px)', 'blur(0px)'] }, { duration: .75, ease: [0.16, 1, 0.3, 1], delay: esc(.032) });
       anim($$('.gp-reg, .gp-desc, .gp-link', el), { opacity: [0, 1], transform: ['translateY(18px)', 'translateY(0px)'] }, { duration: .6, ease: 'easeOut', delay: esc(.09) });
       anim($$('.gp-pecas li', el), { opacity: [0, 1], transform: ['translateY(14px) scale(.9)', 'translateY(0px) scale(1)'] }, { duration: .5, ease: 'easeOut', delay: esc(.07) });
-      if (num) { num.textContent = String(i + 1).padStart(2, '0'); anim(num, { opacity: [0, .55], transform: ['translateY(60px) scale(.88)', 'translateY(0px) scale(1)'], filter: ['blur(10px)', 'blur(0px)'] }, { duration: .9, ease: [0.16, 1, 0.3, 1] }); }
+      contar(ant, i); entradaTl(el); setTimeout(() => rajada(c.a), 260);
+      if (num) { anim(num, { opacity: [0, .55], transform: ['translateY(60px) scale(.88)', 'translateY(0px) scale(1)'], filter: ['blur(10px)', 'blur(0px)'] }, { duration: .9, ease: [0.16, 1, 0.3, 1] }); }
       chipTexto(c, null);
       montar(i);
       track('ep_giro_passo', { passo: i, parte: c.tipo });

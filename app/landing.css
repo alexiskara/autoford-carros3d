@@ -297,3 +297,8 @@ body:has(#ep) :is(main.isb-main,.pages_content,.container,.content-area,.page-ma
 .gp-trilho{margin-top:4px}.gp-trilho button{height:32px;padding:0 8px}.gp-trilho span{display:none}
 }
 @media (prefers-reduced-motion:reduce){.ep-giro{height:auto}.ep-giro-palco{position:relative;top:0;height:auto;grid-template-columns:1fr;padding-top:60px;padding-bottom:60px}.gp-caps{display:block}.gp-cap{visibility:visible;pointer-events:auto;margin-bottom:34px}.gp-palco3d,.gp-trilho{display:none}.gp-aneis i{animation:none}}
+.gp-moldura{position:absolute;inset:0;z-index:2;pointer-events:none;overflow:visible}
+.gp-moldura rect{width:calc(100% - 2px);height:calc(100% - 2px);fill:none;stroke:var(--gp-a);stroke-width:2;stroke-dasharray:1;stroke-dashoffset:0;stroke-linecap:round;filter:drop-shadow(0 0 6px var(--gp-a))}
+.gp-fx{position:absolute;left:50%;top:50%;width:0;height:0;z-index:4;pointer-events:none}
+.gp-fx i{position:absolute;left:-3px;top:-3px;width:6px;height:6px;border-radius:50%;box-shadow:0 0 12px 2px currentColor}
+.gp-reg i{transform-origin:0 50%}
