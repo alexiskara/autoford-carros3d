@@ -903,7 +903,7 @@ function marcarZona(z) {
 
 let motor = null, motorCarregando = null;
 function sincronizarMotor() { if (motor) motor.selecionar(zonaAtual && zonaAtual !== 'motor' ? zonaAtual : null); }
-function setExplodir(on) { if (motor) motor.explodir(on); $('c3d-explodir').setAttribute('aria-pressed', on ? 'true' : 'false'); }
+function setExplodir(on) { if (motor) motor.explodir(on); const b = $('c3d-explodir'); if (b) b.setAttribute('aria-pressed', on ? 'true' : 'false'); }
 function mostrarMotor() {
   const palco = $('c3d-palco'), box = $('c3d-motor3d');
   palco.classList.add('c3d-modo-motor'); box.hidden = false;
@@ -1119,7 +1119,18 @@ $('c3d-lb').onclick = (e) => { if (e.target === $('c3d-lb') || e.target.id === '
 carros.forEach((c) => { const o = document.createElement('option'); o.value = c.brand + ' ' + c.model; $('c3d-bc-lista').appendChild(o); });
 $('c3d-bc-ok').onclick = abrirPorNome; $('c3d-bc').onkeydown = (e) => { if (e.key === 'Enter') abrirPorNome(); };
 if (PLACA_API) { $('c3d-placa').hidden = false; $('c3d-placa-ok').onclick = buscarPlaca; $('c3d-placa-in').onkeydown = (e) => { if (e.key === 'Enter') buscarPlaca(); }; }
-$('c3d-explodir').onclick = () => setExplodir(!(motor && motor.estaExpandido()));
+/* garante o container e o botão do motor mesmo se o HTML colado na loja for de uma versão anterior */
+(function garantirMotorUI() {
+  const palco = $('c3d-palco'); if (!palco) return;
+  if (!$('c3d-motor3d')) { const d = el('div', 'c3d-motor3d'); d.id = 'c3d-motor3d'; d.hidden = true; mv.insertAdjacentElement('afterend', d); }
+  if (!$('c3d-explodir')) {
+    const f = palco.querySelector('.c3d-ferr'); if (!f) return;
+    const b = el('button', 'c3d-ico c3d-mot-ctl'); b.id = 'c3d-explodir'; b.type = 'button'; b.setAttribute('aria-pressed', 'true'); b.title = 'Expandir ou montar o motor'; b.setAttribute('aria-label', 'Expandir ou montar o motor');
+    b.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 3v5M9.5 5.5 12 3l2.5 2.5M12 21v-5M9.5 18.5 12 21l2.5-2.5M3 12h5M5.5 9.5 3 12l2.5 2.5M21 12h-5M18.5 9.5 21 12l-2.5 2.5"/></svg>';
+    f.insertBefore(b, f.firstChild);
+  }
+})();
+if ($('c3d-explodir')) $('c3d-explodir').onclick = () => setExplodir(!(motor && motor.estaExpandido()));
 $('c3d-gira').onclick = () => { const on = mv.hasAttribute('auto-rotate'); if (on) mv.removeAttribute('auto-rotate'); else { if (explo.ativa) desfazerExplosao(); mv.setAttribute('auto-rotate', ''); } $('c3d-gira').setAttribute('aria-pressed', !on); };
 $('c3d-reset').onclick = () => { mv.cameraOrbit = vista(32, 74, 105); mv.querySelector('.c3d-pin').hidden = true; };
 
