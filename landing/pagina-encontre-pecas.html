@@ -1,7 +1,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebPage","name":"Encontre peças para o seu carro em 3D","description":"Gire o seu carro em 3D, clique na parte e encontre as peças compatíveis com o seu modelo.","inLanguage":"pt-BR"},{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Como sei se a peça serve no meu carro?","acceptedAnswer":{"@type":"Answer","text":"As peças são organizadas por modelo e você encontra cada parte do carro com um toque. Na dúvida, envie a peça pelo WhatsApp e confirmamos com você antes da compra."}},{"@type":"Question","name":"O meu carro não aparece na lista. E agora?","acceptedAnswer":{"@type":"Answer","text":"Estamos adicionando novos modelos. Enquanto isso, use a busca da loja ou chame no WhatsApp que ajudamos a achar a peça."}},{"@type":"Question","name":"Onde encontro o ano e a versão do meu carro?","acceptedAnswer":{"@type":"Answer","text":"No documento do veículo (CRLV) aparecem o ano de fabricação e o ano do modelo. A versão costuma vir escrita na tampa traseira ou no manual do proprietário."}},{"@type":"Question","name":"Como saber se a peça é do lado esquerdo ou direito?","acceptedAnswer":{"@type":"Answer","text":"O lado esquerdo é o do motorista e o direito é o do passageiro, sempre olhando do banco do carro para a frente. Se ficar em dúvida, confira nas fotos do produto ou fale com a gente."}},{"@type":"Question","name":"O que é o “Meu veículo”?","acceptedAnswer":{"@type":"Answer","text":"É onde você informa o modelo, o ano e o motor. A escolha fica salva no seu navegador e vale para todas as peças, para o selo “serve no seu carro” aparecer sem digitar de novo."}},{"@type":"Question","name":"A peça que procuro não está na loja. Posso pedir?","acceptedAnswer":{"@type":"Answer","text":"Pode. Use “Pedir orçamento desta peça”, conte o veículo e o código se tiver, e respondemos pelo WhatsApp. Se o produto esgotou, use “Avise-me quando chegar”."}},{"@type":"Question","name":"O passo a passo de instalação substitui o manual?","acceptedAnswer":{"@type":"Answer","text":"Não. Ele é uma orientação geral para você entender o serviço e as ferramentas. Siga sempre o manual do seu veículo e procure um profissional em serviços de freio, suspensão e distribuição."}},{"@type":"Question","name":"Funciona no celular?","acceptedAnswer":{"@type":"Answer","text":"Sim. O visualizador foi feito para toque: arraste para girar, use dois dedos para aproximar e toque na parte do carro."}},{"@type":"Question","name":"As imagens 3D são do meu carro exato?","acceptedAnswer":{"@type":"Answer","text":"São modelos ilustrativos do mesmo modelo de carro. Pequenas diferenças de versão ou ano podem existir, por isso a compatibilidade é sempre conferida pelo ano do veículo."}}]},{"@type":"ItemList","name":"Modelos de carro disponíveis em 3D","itemListElement":[{"@type":"ListItem","position":1,"name":"Chevrolet Onix"}]}]}</script>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400..800&family=Space+Grotesk:wght@500..700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/alexiskara/autoford-carros3d@d1bb3d4a963ae667e5e76e4bf8102e622e5c0ece/app/landing.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/alexiskara/autoford-carros3d@d1bb3d4a963ae667e5e76e4bf8102e622e5c0ece/app/viewer.css">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400..800&family=Space+Grotesk:wght@500..700&family=Unbounded:wght@500..800&family=JetBrains+Mono:wght@500..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/alexiskara/autoford-carros3d@546a304b751ae2e07043958379fc1bc10c33efb3/app/landing.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/alexiskara/autoford-carros3d@546a304b751ae2e07043958379fc1bc10c33efb3/app/viewer.css">
 
 <div class="ep" id="ep">
 
@@ -67,20 +67,70 @@
 </section>
 
 <!-- GIRO NA ROLAGEM -->
-<section class="ep-giro" id="giro" aria-label="Conheça o carro por todos os lados">
+<section class="ep-giro" id="giro" aria-label="Cada região do carro e as peças dela" style="--n:6">
   <div class="ep-giro-palco">
-    <div class="ep-giro-txt">
+    <div class="gp-col">
       <span class="ep-tag" data-rv>Role a página</span>
       <h2 data-rv>Cada lado do carro, <em>peças diferentes</em></h2>
-      <ol class="ep-giro-passos" id="ep-giro-passos">
-        <li class="on"><b>Frente</b><p>Faróis, radiador e o motor sob o capô.</p><a href="#visualizador" data-parte="motor">Ver o motor em 3D <span aria-hidden="true">→</span></a></li>
-        <li><b>Laterais</b><p>Portas, retrovisores e limpador de parabrisa.</p><a href="#visualizador" data-parte="portas">Ver as portas em 3D <span aria-hidden="true">→</span></a></li>
-        <li><b>Rodas</b><p>Rodas, freios, suspensão e kit lift.</p><a href="#visualizador" data-parte="rodas">Ver as rodas em 3D <span aria-hidden="true">→</span></a></li>
-        <li><b>Traseira</b><p>Lanternas e escapamento.</p><a href="#visualizador" data-parte="lanterna">Ver a lanterna em 3D <span aria-hidden="true">→</span></a></li>
-        <li><b>Elétrica</b><p>Bateria, alternador e motor de partida.</p><a href="#visualizador" data-parte="alternador">Ver o alternador em 3D <span aria-hidden="true">→</span></a></li>
+      <div class="gp-caps">
+        <article class="gp-cap on" data-i="0">
+          <small class="gp-reg"><i></i>Frente</small>
+          <h3 class="gp-tit">Faróis</h3>
+          <p class="gp-desc">Lente, refletor e lâmpada: o conjunto que decide o quanto você enxerga à noite. Veja cada peça separada e ache a do seu modelo.</p>
+          <ul class="gp-pecas" aria-label="Peças em destaque"><li data-k="lente-farol">Lente</li><li data-k="refletor">Refletor</li><li data-k="lampada-farol">Lâmpada</li></ul>
+          <a class="gp-link" href="#visualizador" data-parte="farol"><span>Ver faróis no visualizador</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        </article>
+        <article class="gp-cap" data-i="1">
+          <small class="gp-reg"><i></i>Capô</small>
+          <h3 class="gp-tit">Motor</h3>
+          <p class="gp-desc">Cabeçote, bobinas, bomba d’água e coletor. Abra o motor, veja cada componente e encontre a peça que está falhando.</p>
+          <ul class="gp-pecas" aria-label="Peças em destaque"><li data-k="cabecote-v6">Cabeçote</li><li data-k="bobina-v6">Bobinas</li><li data-k="bomba-agua-v6">Bomba d’água</li></ul>
+          <a class="gp-link" href="#visualizador" data-parte="motor"><span>Ver motor no visualizador</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        </article>
+        <article class="gp-cap" data-i="2">
+          <small class="gp-reg"><i></i>Rodas</small>
+          <h3 class="gp-tit">Freios</h3>
+          <p class="gp-desc">Disco, pastilha e pinça trabalham juntos. Entenda o conjunto e troque só o que está gasto.</p>
+          <ul class="gp-pecas" aria-label="Peças em destaque"><li data-k="disco-freio">Disco</li><li data-k="pastilha">Pastilhas</li><li data-k="pinca">Pinça</li></ul>
+          <a class="gp-link" href="#visualizador" data-parte="freios"><span>Ver freios no visualizador</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        </article>
+        <article class="gp-cap" data-i="3">
+          <small class="gp-reg"><i></i>Chão</small>
+          <h3 class="gp-tit">Suspensão</h3>
+          <p class="gp-desc">Amortecedor, mola, bandeja e coxim: o que segura o carro firme em buraco e em curva.</p>
+          <ul class="gp-pecas" aria-label="Peças em destaque"><li data-k="amortecedor">Amortecedor</li><li data-k="mola">Mola</li><li data-k="bandeja">Bandeja</li></ul>
+          <a class="gp-link" href="#visualizador" data-parte="suspensao"><span>Ver suspensão no visualizador</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        </article>
+        <article class="gp-cap" data-i="4">
+          <small class="gp-reg"><i></i>Traseira</small>
+          <h3 class="gp-tit">Escapamento</h3>
+          <p class="gp-desc">Do coletor à ponteira: catalisador, sonda lambda e silenciosos, na ordem em que os gases passam.</p>
+          <ul class="gp-pecas" aria-label="Peças em destaque"><li data-k="catalisador">Catalisador</li><li data-k="silencioso">Silencioso</li><li data-k="ponteira">Ponteira</li></ul>
+          <a class="gp-link" href="#visualizador" data-parte="escapamento"><span>Ver escapamento no visualizador</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        </article>
+        <article class="gp-cap" data-i="5">
+          <small class="gp-reg"><i></i>Elétrica</small>
+          <h3 class="gp-tit">Alternador</h3>
+          <p class="gp-desc">Estator, rotor e regulador de voltagem: o que mantém a bateria carregada e o carro ligando.</p>
+          <ul class="gp-pecas" aria-label="Peças em destaque"><li data-k="estator">Estator</li><li data-k="rotor-alt">Rotor</li><li data-k="regulador">Regulador</li></ul>
+          <a class="gp-link" href="#visualizador" data-parte="alternador"><span>Ver alternador no visualizador</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        </article>
+      </div>
+      <ol class="gp-trilho" aria-label="Regiões do carro">
+        <li class="on"><button type="button" aria-label="Ir para Frente: Faróis"><i class="gp-bar"></i><b>01</b><span>Frente</span></button></li>
+        <li><button type="button" aria-label="Ir para Capô: Motor"><i class="gp-bar"></i><b>02</b><span>Capô</span></button></li>
+        <li><button type="button" aria-label="Ir para Rodas: Freios"><i class="gp-bar"></i><b>03</b><span>Rodas</span></button></li>
+        <li><button type="button" aria-label="Ir para Chão: Suspensão"><i class="gp-bar"></i><b>04</b><span>Chão</span></button></li>
+        <li><button type="button" aria-label="Ir para Traseira: Escapamento"><i class="gp-bar"></i><b>05</b><span>Traseira</span></button></li>
+        <li><button type="button" aria-label="Ir para Elétrica: Alternador"><i class="gp-bar"></i><b>06</b><span>Elétrica</span></button></li>
       </ol>
     </div>
-    <div class="ep-giro-carro" id="ep-giro-carro" aria-hidden="true"></div>
+    <div class="gp-palco3d" aria-hidden="true">
+      <div class="gp-num-w"><div class="gp-num">01</div></div>
+      <div class="gp-aneis"><i></i><i></i></div>
+      <div class="ep-giro-carro gp-stage" id="ep-giro-carro"></div>
+      <div class="gp-chip"><small>Em destaque</small><b>Peças separadas</b></div>
+    </div>
   </div>
 </section>
 
@@ -352,4 +402,4 @@
 </footer>
 </div>
 <script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
-<script type="module" src="https://cdn.jsdelivr.net/gh/alexiskara/autoford-carros3d@d1bb3d4a963ae667e5e76e4bf8102e622e5c0ece/app/encontre-pecas.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/alexiskara/autoford-carros3d@546a304b751ae2e07043958379fc1bc10c33efb3/app/encontre-pecas.js"></script>
