@@ -1,0 +1,883 @@
+{
+ "versao": 1,
+ "gerado": "2026-11-10",
+ "moeda": "BRL",
+ "veiculos": [
+  {
+   "id": "chevrolet-onix",
+   "marca": "Chevrolet",
+   "modelo": "Onix",
+   "anos": [
+    2012,
+    2024
+   ],
+   "motor": "1.0 / 1.4",
+   "categoria": "hatch",
+   "arquivo3d": "",
+   "imagem": ""
+  },
+  {
+   "id": "jeep-compass",
+   "marca": "Jeep",
+   "modelo": "Compass",
+   "anos": [
+    2011,
+    2021
+   ],
+   "motor": "2.0",
+   "categoria": "suv",
+   "arquivo3d": "",
+   "imagem": ""
+  },
+  {
+   "id": "jeep-wrangler",
+   "marca": "Jeep",
+   "modelo": "Wrangler",
+   "anos": [
+    2007,
+    2025
+   ],
+   "motor": "3.6 V6",
+   "categoria": "suv",
+   "arquivo3d": "",
+   "imagem": ""
+  },
+  {
+   "id": "dodge-ram-2500",
+   "marca": "Dodge",
+   "modelo": "RAM 2500",
+   "anos": [
+    2010,
+    2022
+   ],
+   "motor": "6.7 Diesel",
+   "categoria": "pickup",
+   "arquivo3d": "",
+   "imagem": ""
+  },
+  {
+   "id": "ford-f150",
+   "marca": "Ford",
+   "modelo": "F-150",
+   "anos": [
+    2015,
+    2024
+   ],
+   "motor": "3.5 V6",
+   "categoria": "pickup",
+   "arquivo3d": "",
+   "imagem": ""
+  },
+  {
+   "id": "porsche-cayenne",
+   "marca": "Porsche",
+   "modelo": "Cayenne",
+   "anos": [
+    2011,
+    2018
+   ],
+   "motor": "3.6 V6",
+   "categoria": "suv",
+   "arquivo3d": "",
+   "imagem": ""
+  },
+  {
+   "id": "volvo-xc60",
+   "marca": "Volvo",
+   "modelo": "XC60",
+   "anos": [
+    2010,
+    2017
+   ],
+   "motor": "2.0 Turbo",
+   "categoria": "suv",
+   "arquivo3d": "",
+   "imagem": ""
+  }
+ ],
+ "produtos": [
+  {
+   "id": "TERM-CMP",
+   "sku": "TERM-CMP",
+   "nome": "Termostato Jeep Compass 2.0 2011 a 2016",
+   "url": "/produto/termostato-jeep-compass-p101",
+   "img": "",
+   "preco": "189,90",
+   "preco_de": "",
+   "pecas": [
+    "termostato-arref",
+    "corte-termostato",
+    "termo-elemento",
+    "arrefecimento"
+   ],
+   "veiculos": [
+    "jeep-compass"
+   ],
+   "anos": [
+    2011,
+    2016
+   ]
+  },
+  {
+   "id": "BAG-CMP",
+   "sku": "BAG-CMP",
+   "nome": "Bomba D'água Jeep Compass 2.0 2011 a 2021",
+   "url": "/produto/bomba-dagua-jeep-compass-p102",
+   "img": "",
+   "preco": "429,00",
+   "preco_de": "489,00",
+   "pecas": [
+    "bomba-agua-arref",
+    "bomba-agua-v6",
+    "bomba-dagua-kit",
+    "bomba-agua",
+    "arrefecimento"
+   ],
+   "veiculos": [
+    "jeep-compass"
+   ],
+   "anos": [
+    2011,
+    2021
+   ]
+  },
+  {
+   "id": "RFO-CMP",
+   "sku": "RFO-CMP",
+   "nome": "Resfriador de Óleo Jeep Compass 2.0 2014 a 2018",
+   "url": "/produto/resfriador-oleo-jeep-compass-p103",
+   "img": "",
+   "preco": "1290,00",
+   "preco_de": "2150,00",
+   "pecas": [
+    "resfriador-oleo",
+    "resfriador-v6",
+    "motor-v6",
+    "arrefecimento"
+   ],
+   "veiculos": [
+    "jeep-compass"
+   ],
+   "anos": [
+    2014,
+    2018
+   ]
+  },
+  {
+   "id": "RAD-CMP",
+   "sku": "RAD-CMP",
+   "nome": "Radiador Jeep Compass 2.0 2011 a 2016",
+   "url": "/produto/radiador-jeep-compass-p104",
+   "img": "",
+   "preco": "1090,00",
+   "preco_de": "",
+   "pecas": [
+    "radiador",
+    "radiador-arref",
+    "arrefecimento"
+   ],
+   "veiculos": [
+    "jeep-compass"
+   ],
+   "anos": [
+    2011,
+    2016
+   ]
+  },
+  {
+   "id": "EVT-CMP",
+   "sku": "EVT-CMP",
+   "nome": "Eletroventilador Jeep Compass 2011 a 2016",
+   "url": "/produto/eletroventilador-jeep-compass-p105",
+   "img": "",
+   "preco": "780,00",
+   "preco_de": "",
+   "pecas": [
+    "ventoinha",
+    "ventoinha-arref",
+    "radiador",
+    "arrefecimento"
+   ],
+   "veiculos": [
+    "jeep-compass"
+   ],
+   "anos": [
+    2011,
+    2016
+   ]
+  },
+  {
+   "id": "RES-WRG",
+   "sku": "RES-WRG",
+   "nome": "Reservatório de Expansão Jeep Wrangler 3.6 2012 a 2018",
+   "url": "/produto/reservatorio-expansao-jeep-wrangler-p106",
+   "img": "",
+   "preco": "349,90",
+   "preco_de": "",
+   "pecas": [
+    "reservatorio",
+    "reservatorio-arref",
+    "radiador",
+    "arrefecimento"
+   ],
+   "veiculos": [
+    "jeep-wrangler"
+   ],
+   "anos": [
+    2012,
+    2018
+   ]
+  },
+  {
+   "id": "CXM-JNY",
+   "sku": "CXM-JNY",
+   "nome": "Coxim do Amortecedor Dodge Journey 2009 a 2020",
+   "url": "/produto/coxim-amortecedor-dodge-journey-p107",
+   "img": "",
+   "preco": "219,00",
+   "preco_de": "310,00",
+   "pecas": [
+    "amortecedor",
+    "amortecedor-lift",
+    "suspensao",
+    "coxim",
+    "coxim-lift"
+   ],
+   "veiculos": [],
+   "anos": [
+    2009,
+    2020
+   ]
+  },
+  {
+   "id": "LFT-WRG",
+   "sku": "LFT-WRG",
+   "nome": "Kit Lift 2.5\" Jeep Wrangler 2018 a 2025",
+   "url": "/produto/kit-lift-jeep-wrangler-p108",
+   "img": "",
+   "preco": "13890,00",
+   "preco_de": "",
+   "pecas": [
+    "lift",
+    "suspensao",
+    "mola-lift",
+    "amortecedor-lift",
+    "bandeja-lift",
+    "coxim-lift",
+    "barra-track"
+   ],
+   "veiculos": [
+    "jeep-wrangler"
+   ],
+   "anos": [
+    2018,
+    2025
+   ]
+  },
+  {
+   "id": "LFT-RAM",
+   "sku": "LFT-RAM",
+   "nome": "Kit Lift 3\" Dodge RAM 2500 2014 a 2022",
+   "url": "/produto/kit-lift-dodge-ram-2500-p109",
+   "img": "",
+   "preco": "15490,00",
+   "preco_de": "",
+   "pecas": [
+    "lift",
+    "suspensao",
+    "mola-lift",
+    "amortecedor-lift",
+    "bandeja-lift",
+    "coxim-lift",
+    "barra-track"
+   ],
+   "veiculos": [
+    "dodge-ram-2500"
+   ],
+   "anos": [
+    2014,
+    2022
+   ]
+  },
+  {
+   "id": "LFT-F15",
+   "sku": "LFT-F15",
+   "nome": "Kit Suspensão Elevada Ford F-150 2021 a 2024",
+   "url": "/produto/kit-suspensao-ford-f150-p110",
+   "img": "",
+   "preco": "14250,00",
+   "preco_de": "",
+   "pecas": [
+    "suspensao"
+   ],
+   "veiculos": [
+    "ford-f150"
+   ],
+   "anos": [
+    2021,
+    2024
+   ]
+  },
+  {
+   "id": "AMT-CMP",
+   "sku": "AMT-CMP",
+   "nome": "Amortecedor Dianteiro Jeep Compass 2011 a 2021",
+   "url": "/produto/amortecedor-dianteiro-jeep-compass-p111",
+   "img": "",
+   "preco": "520,00",
+   "preco_de": "",
+   "pecas": [
+    "amortecedor",
+    "amortecedor-lift",
+    "suspensao"
+   ],
+   "veiculos": [
+    "jeep-compass"
+   ],
+   "anos": [
+    2011,
+    2021
+   ]
+  },
+  {
+   "id": "AMT-ONX",
+   "sku": "AMT-ONX",
+   "nome": "Amortecedor Traseiro Chevrolet Onix 2012 a 2019",
+   "url": "/produto/amortecedor-traseiro-onix-p112",
+   "img": "",
+   "preco": "289,00",
+   "preco_de": "",
+   "pecas": [
+    "amortecedor",
+    "amortecedor-lift",
+    "suspensao"
+   ],
+   "veiculos": [
+    "chevrolet-onix"
+   ],
+   "anos": [
+    2012,
+    2019
+   ]
+  },
+  {
+   "id": "BND-CMP",
+   "sku": "BND-CMP",
+   "nome": "Bandeja Dianteira Jeep Compass 2011 a 2017",
+   "url": "/produto/bandeja-jeep-compass-p113",
+   "img": "",
+   "preco": "390,00",
+   "preco_de": "",
+   "pecas": [
+    "bandeja",
+    "bandeja-lift",
+    "suspensao"
+   ],
+   "veiculos": [
+    "jeep-compass"
+   ],
+   "anos": [
+    2011,
+    2017
+   ]
+  },
+  {
+   "id": "BIE-ONX",
+   "sku": "BIE-ONX",
+   "nome": "Bieleta da Barra Estabilizadora Chevrolet Onix 2012 a 2019",
+   "url": "/produto/bieleta-onix-p114",
+   "img": "",
+   "preco": "69,90",
+   "preco_de": "",
+   "pecas": [
+    "bieleta",
+    "suspensao",
+    "estabilizadora"
+   ],
+   "veiculos": [
+    "chevrolet-onix"
+   ],
+   "anos": [
+    2012,
+    2019
+   ]
+  },
+  {
+   "id": "PST-ONX",
+   "sku": "PST-ONX",
+   "nome": "Pastilha de Freio Dianteira Chevrolet Onix 2012 a 2019",
+   "url": "/produto/pastilha-freio-onix-p115",
+   "img": "",
+   "preco": "119,00",
+   "preco_de": "",
+   "pecas": [
+    "pastilha",
+    "freios",
+    "disco-freio"
+   ],
+   "veiculos": [
+    "chevrolet-onix"
+   ],
+   "anos": [
+    2012,
+    2019
+   ]
+  },
+  {
+   "id": "DSC-ONX",
+   "sku": "DSC-ONX",
+   "nome": "Disco de Freio Dianteiro Chevrolet Onix 2012 a 2019",
+   "url": "/produto/disco-freio-onix-p116",
+   "img": "",
+   "preco": "289,00",
+   "preco_de": "",
+   "pecas": [
+    "disco-freio",
+    "freios"
+   ],
+   "veiculos": [
+    "chevrolet-onix"
+   ],
+   "anos": [
+    2012,
+    2019
+   ]
+  },
+  {
+   "id": "DSC-CAY",
+   "sku": "DSC-CAY",
+   "nome": "Disco de Freio Porsche Cayenne 2011 a 2018",
+   "url": "/produto/disco-freio-cayenne-p117",
+   "img": "",
+   "preco": "1890,00",
+   "preco_de": "",
+   "pecas": [
+    "disco-freio",
+    "freios"
+   ],
+   "veiculos": [
+    "porsche-cayenne"
+   ],
+   "anos": [
+    2011,
+    2018
+   ]
+  },
+  {
+   "id": "PIN-CMP",
+   "sku": "PIN-CMP",
+   "nome": "Pinça de Freio Jeep Compass 2011 a 2021",
+   "url": "/produto/pinca-freio-jeep-compass-p118",
+   "img": "",
+   "preco": "690,00",
+   "preco_de": "",
+   "pecas": [
+    "pinca",
+    "freios",
+    "disco-freio"
+   ],
+   "veiculos": [
+    "jeep-compass"
+   ],
+   "anos": [
+    2011,
+    2021
+   ]
+  },
+  {
+   "id": "TBI-CMP",
+   "sku": "TBI-CMP",
+   "nome": "Corpo de Borboleta Jeep Compass 2.0 2011 a 2016",
+   "url": "/produto/corpo-borboleta-jeep-compass-p119",
+   "img": "",
+   "preco": "1480,00",
+   "preco_de": "",
+   "pecas": [
+    "corpo-borboleta",
+    "corte-borboleta",
+    "borb-eixo-placa",
+    "motor-v6"
+   ],
+   "veiculos": [
+    "jeep-compass"
+   ],
+   "anos": [
+    2011,
+    2016
+   ]
+  },
+  {
+   "id": "TBI-F15",
+   "sku": "TBI-F15",
+   "nome": "Corpo de Borboleta Ford F-150 3.5 2015 a 2020",
+   "url": "/produto/corpo-borboleta-f150-p120",
+   "img": "",
+   "preco": "1790,00",
+   "preco_de": "",
+   "pecas": [
+    "corpo-borboleta",
+    "corte-borboleta",
+    "borb-eixo-placa",
+    "motor-v6"
+   ],
+   "veiculos": [
+    "ford-f150"
+   ],
+   "anos": [
+    2015,
+    2020
+   ]
+  },
+  {
+   "id": "BOB-WRG",
+   "sku": "BOB-WRG",
+   "nome": "Bobina de Ignição Jeep Wrangler 3.6 2012 a 2018",
+   "url": "/produto/bobina-jeep-wrangler-p121",
+   "img": "",
+   "preco": "329,00",
+   "preco_de": "",
+   "pecas": [
+    "bobina-v6",
+    "motor-v6"
+   ],
+   "veiculos": [
+    "jeep-wrangler"
+   ],
+   "anos": [
+    2012,
+    2018
+   ]
+  },
+  {
+   "id": "SPO-CMP",
+   "sku": "SPO-CMP",
+   "nome": "Sensor de Pressão de Óleo Jeep Compass 2.0 2011 a 2016",
+   "url": "/produto/sensor-pressao-oleo-compass-p122",
+   "img": "",
+   "preco": "189,00",
+   "preco_de": "",
+   "pecas": [
+    "sensor-oleo-v6",
+    "corte-sensor-oleo",
+    "soe-diafragma",
+    "motor-v6"
+   ],
+   "veiculos": [
+    "jeep-compass"
+   ],
+   "anos": [
+    2011,
+    2016
+   ]
+  },
+  {
+   "id": "SOL-XC6",
+   "sku": "SOL-XC6",
+   "nome": "Válvula Solenoide Volvo XC60 2.0 Turbo 2010 a 2017",
+   "url": "/produto/valvula-solenoide-xc60-p123",
+   "img": "",
+   "preco": "540,00",
+   "preco_de": "",
+   "pecas": [
+    "corte-solenoide",
+    "sol-bobina",
+    "sol-embolo",
+    "turbo",
+    "turbina",
+    "compressor",
+    "cartucho",
+    "rotor-turbo",
+    "wastegate"
+   ],
+   "veiculos": [
+    "volvo-xc60"
+   ],
+   "anos": [
+    2010,
+    2017
+   ]
+  },
+  {
+   "id": "JCB-WRG",
+   "sku": "JCB-WRG",
+   "nome": "Junta do Cabeçote Jeep Wrangler 3.6 2012 a 2018",
+   "url": "/produto/junta-cabecote-wrangler-p124",
+   "img": "",
+   "preco": "980,00",
+   "preco_de": "",
+   "pecas": [
+    "junta",
+    "cabecote",
+    "motor",
+    "cabecote-v6",
+    "motor-v6"
+   ],
+   "veiculos": [
+    "jeep-wrangler"
+   ],
+   "anos": [
+    2012,
+    2018
+   ]
+  },
+  {
+   "id": "TPV-CAY",
+   "sku": "TPV-CAY",
+   "nome": "Tampa de Válvulas Porsche Cayenne 3.6 2011 a 2018",
+   "url": "/produto/tampa-valvulas-cayenne-p125",
+   "img": "",
+   "preco": "1250,00",
+   "preco_de": "",
+   "pecas": [
+    "tampa-valvulas",
+    "motor-v6"
+   ],
+   "veiculos": [
+    "porsche-cayenne"
+   ],
+   "anos": [
+    2011,
+    2018
+   ]
+  },
+  {
+   "id": "FRL-JNY",
+   "sku": "FRL-JNY",
+   "nome": "Farol Dianteiro Dodge Journey 2009 a 2020",
+   "url": "/produto/farol-dodge-journey-p126",
+   "img": "",
+   "preco": "1690,00",
+   "preco_de": "",
+   "pecas": [
+    "farol"
+   ],
+   "veiculos": [],
+   "anos": [
+    2009,
+    2020
+   ]
+  },
+  {
+   "id": "FRL-SLV",
+   "sku": "FRL-SLV",
+   "nome": "Farol Chevrolet Silverado 2023 a 2025",
+   "url": "/produto/farol-silverado-p127",
+   "img": "",
+   "preco": "3290,00",
+   "preco_de": "",
+   "pecas": [
+    "farol"
+   ],
+   "veiculos": [],
+   "anos": [
+    2023,
+    2025
+   ]
+  },
+  {
+   "id": "LMP-H7",
+   "sku": "LMP-H7",
+   "nome": "Lâmpada de Farol H7 Universal",
+   "url": "/produto/lampada-h7-p128",
+   "img": "",
+   "preco": "49,90",
+   "preco_de": "",
+   "pecas": [
+    "lampada-farol",
+    "farol"
+   ],
+   "veiculos": [],
+   "universal": true
+  },
+  {
+   "id": "RTV-ONX",
+   "sku": "RTV-ONX",
+   "nome": "Retrovisor Elétrico Chevrolet Onix 2012 a 2019",
+   "url": "/produto/retrovisor-onix-p129",
+   "img": "",
+   "preco": "259,00",
+   "preco_de": "",
+   "pecas": [
+    "retrovisor"
+   ],
+   "veiculos": [
+    "chevrolet-onix"
+   ],
+   "anos": [
+    2012,
+    2019
+   ]
+  },
+  {
+   "id": "BAT-60",
+   "sku": "BAT-60",
+   "nome": "Bateria 60Ah Universal",
+   "url": "/produto/bateria-60ah-p130",
+   "img": "",
+   "preco": "489,00",
+   "preco_de": "",
+   "pecas": [
+    "bateria"
+   ],
+   "veiculos": [],
+   "universal": true
+  },
+  {
+   "id": "ALT-CMP",
+   "sku": "ALT-CMP",
+   "nome": "Alternador Jeep Compass 2.0 2011 a 2016",
+   "url": "/produto/alternador-jeep-compass-p131",
+   "img": "",
+   "preco": "1190,00",
+   "preco_de": "",
+   "pecas": [
+    "alternador"
+   ],
+   "veiculos": [
+    "jeep-compass"
+   ],
+   "anos": [
+    2011,
+    2016
+   ]
+  },
+  {
+   "id": "PRT-ONX",
+   "sku": "PRT-ONX",
+   "nome": "Motor de Partida Chevrolet Onix 1.4 2012 a 2019",
+   "url": "/produto/motor-partida-onix-p132",
+   "img": "",
+   "preco": "690,00",
+   "preco_de": "",
+   "pecas": [
+    "partida"
+   ],
+   "veiculos": [
+    "chevrolet-onix"
+   ],
+   "anos": [
+    2012,
+    2019
+   ]
+  },
+  {
+   "id": "KCD-ONX",
+   "sku": "KCD-ONX",
+   "nome": "Kit Correia Dentada com Tensor Chevrolet Onix 1.4 2012 a 2019",
+   "url": "/produto/kit-correia-dentada-onix-p133",
+   "img": "",
+   "preco": "379,00",
+   "preco_de": "",
+   "pecas": [
+    "correia",
+    "distribuicao",
+    "tensor"
+   ],
+   "veiculos": [
+    "chevrolet-onix"
+   ],
+   "anos": [
+    2012,
+    2019
+   ]
+  },
+  {
+   "id": "TRB-XC6",
+   "sku": "TRB-XC6",
+   "nome": "Turbina Volvo XC60 2.0 Turbo 2010 a 2017",
+   "url": "/produto/turbina-xc60-p134",
+   "img": "",
+   "preco": "4890,00",
+   "preco_de": "",
+   "pecas": [
+    "turbo",
+    "turbina",
+    "compressor",
+    "cartucho",
+    "rotor-turbo",
+    "wastegate"
+   ],
+   "veiculos": [
+    "volvo-xc60"
+   ],
+   "anos": [
+    2010,
+    2017
+   ]
+  },
+  {
+   "id": "EMB-ONX",
+   "sku": "EMB-ONX",
+   "nome": "Embreagem Completa Chevrolet Onix 1.4 2012 a 2019",
+   "url": "/produto/kit-embreagem-onix-p135",
+   "img": "",
+   "preco": "890,00",
+   "preco_de": "",
+   "pecas": [
+    "embreagem"
+   ],
+   "veiculos": [
+    "chevrolet-onix"
+   ],
+   "anos": [
+    2012,
+    2019
+   ]
+  },
+  {
+   "id": "CAT-CMP",
+   "sku": "CAT-CMP",
+   "nome": "Escapamento Catalisador Jeep Compass 2.0 2011 a 2016",
+   "url": "/produto/catalisador-compass-p136",
+   "img": "",
+   "preco": "2490,00",
+   "preco_de": "",
+   "pecas": [
+    "catalisador",
+    "escapamento"
+   ],
+   "veiculos": [
+    "jeep-compass"
+   ],
+   "anos": [
+    2011,
+    2016
+   ]
+  },
+  {
+   "id": "DIR-CMP",
+   "sku": "DIR-CMP",
+   "nome": "Caixa de Direção Hidráulica Jeep Compass 2011 a 2016",
+   "url": "/produto/caixa-direcao-compass-p137",
+   "img": "",
+   "preco": "2290,00",
+   "preco_de": "",
+   "pecas": [
+    "direcao",
+    "cremalheira"
+   ],
+   "veiculos": [
+    "jeep-compass"
+   ],
+   "anos": [
+    2011,
+    2016
+   ]
+  },
+  {
+   "id": "PAL-22",
+   "sku": "PAL-22",
+   "nome": "Palheta do Limpador Universal 22\"",
+   "url": "/produto/palheta-22-p138",
+   "img": "",
+   "preco": "39,90",
+   "preco_de": "",
+   "pecas": [
+    "palheta",
+    "limpador"
+   ],
+   "veiculos": [],
+   "universal": true
+  }
+ ]
+}

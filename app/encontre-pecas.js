@@ -1,8 +1,20 @@
 /* Landing "Encontre peças" — Autoford / Variados.
  * Animações: Motion (revelar ao rolar, magnético, FAQ) + anime.js (contadores, stagger, partículas, filtro).
  * Fundo de linhas fluidas inspirado no "Background Paths" do Kokonut UI (MIT, kokonutui.com), reescrito em JS puro. */
-const BASE = (typeof window.EP_BASE === 'string') ? window.EP_BASE : 'https://cdn.jsdelivr.net/gh/alexiskara/autoford-carros3d@303be88198918db7d067f38803c188f3d0642c7d';
-const VISUALIZADOR = '/3d-carros/';
+/* Configuração da loja (loja.config.json ao lado deste script, ou window.APC_CONFIG: objeto ou endereço do .json) */
+async function carregarConfig() {
+  let c = window.APC_CONFIG, url = new URL('./loja.config.json', import.meta.url).href;
+  try {
+    if (typeof c === 'string') { url = new URL(c, location.href).href; c = await (await fetch(url)).json(); }
+    else if (!c) { const r = await fetch(url); c = r.ok ? await r.json() : {}; }
+  } catch (e) { c = {}; }
+  c = c || {};
+  return { url: url, cfg: Object.assign({ base: '', catalogo: '', veiculos: 'cars.json', carrosVisiveis: null }, c, { loja: Object.assign({ nome: '', pagina3d: '/3d-carros/' }, c.loja || {}) }) };
+}
+const { url: CFG_URL, cfg: CFG } = await carregarConfig();
+const relCfg = (u) => (u ? new URL(u, CFG_URL).href : '');
+const BASE = (typeof window.EP_BASE === 'string') ? window.EP_BASE : (CFG.base ? relCfg(CFG.base).replace(/\/$/, '') : 'https://cdn.jsdelivr.net/gh/alexiskara/autoford-carros3d@303be88198918db7d067f38803c188f3d0642c7d');
+const VISUALIZADOR = CFG.loja.pagina3d || '/3d-carros/';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const raiz = $('#ep');
@@ -42,10 +54,17 @@ const norm = (t) => semAcento(t).toLowerCase().replace(/[^a-z0-9]/g, '');
 
 /* ---------- dados ---------- */
 let carros = [];
-/* Carros exibidos (ids do cars.json). Vazio = mostra todos. */
-const CARROS_EXEMPLO = ['chevrolet-onix'];
-try { carros = (await (await fetch(BASE + '/cars.json')).json()).cars || []; } catch (e) { carros = []; }
-if (CARROS_EXEMPLO.length) { const f = carros.filter((c) => CARROS_EXEMPLO.includes(c.id)); if (f.length) carros = f; }
+const carregarJSON = async (u) => { try { const r = await fetch(u); return r.ok ? await r.json() : null; } catch (e) { return null; } };
+{
+  const c3d = await carregarJSON(BASE + '/' + (CFG.veiculos || 'cars.json'));
+  const cat = CFG.catalogo ? await carregarJSON(relCfg(CFG.catalogo)) : null;
+  const m3d = new Map(((c3d && c3d.cars) || []).map((c) => [c.id, c]));
+  const lista = [];
+  ((cat && cat.veiculos) || []).forEach((v) => { const b = m3d.get(v.id) || {}; lista.push(Object.assign({}, b, { id: v.id, brand: v.marca || b.brand, model: v.modelo || b.model, category: v.categoria || b.category || '', imagem: v.imagem || '', file: v.arquivo3d || b.file || '' })); m3d.delete(v.id); });
+  m3d.forEach((b) => lista.push(b));
+  carros = lista.filter((c) => c.brand && c.model);
+  if (Array.isArray(CFG.carrosVisiveis) && CFG.carrosVisiveis.length) { const f = carros.filter((c) => CFG.carrosVisiveis.includes(c.id)); if (f.length) carros = f; }
+}
 const nomeCarro = (c) => c.brand + ' ' + c.model;
 const TIPO = { hatch: 'Hatch', suv: 'SUV', pickup: 'Picape' };
 
@@ -82,7 +101,7 @@ $('#ep-partes').innerHTML = PARTES.map((p, i) => '<a class="ep-pc" data-rv data-
 /* ---------- modelos ---------- */
 function montarGrade(filtro) {
   const lista = carros.filter((c) => filtro === 'todos' || c.category === filtro);
-  $('#ep-grade').innerHTML = lista.map((c) => '<a class="ep-mc" data-carro="' + c.id + '" href="' + VISUALIZADOR + '?carro=' + c.id + '"><img loading="lazy" alt="' + nomeCarro(c) + '" src="' + BASE + '/posters/poster-' + c.id + '.webp"><div><span><small>' + c.brand + '</small><b>' + c.model + '</b></span><em>Abrir 3D →</em></div></a>').join('');
+  $('#ep-grade').innerHTML = lista.map((c) => '<a class="ep-mc" data-carro="' + c.id + '" href="' + VISUALIZADOR + '?carro=' + c.id + '"><img loading="lazy" alt="' + nomeCarro(c) + '" src="' + (c.imagem || (BASE + '/posters/poster-' + c.id + '.webp')) + '" onerror="this.onerror=null;this.src=\'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 240 140%22%3E%3Crect width=%22240%22 height=%22140%22 fill=%22%23101a30%22/%3E%3Cpath d=%22M40 92l14-34h132l14 34v22H40z%22 fill=%22none%22 stroke=%22%236f86c8%22 stroke-width=%223%22/%3E%3Ccircle cx=%2282%22 cy=%22116%22 r=%2212%22 fill=%22%236f86c8%22/%3E%3Ccircle cx=%22158%22 cy=%22116%22 r=%2212%22 fill=%22%236f86c8%22/%3E%3C/svg%3E\'"><div><span><small>' + c.brand + '</small><b>' + c.model + '</b></span><em>Abrir 3D →</em></div></a>').join('');
   const cards = $$('.ep-mc');
   if (A && !reduz) A.animate(cards, { opacity: [0, 1], translateY: [24, 0], scale: [0.96, 1], delay: A.stagger(45), duration: 650, ease: 'outExpo' });
   cards.forEach(inclinar);

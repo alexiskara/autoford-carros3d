@@ -1,5 +1,19 @@
 /* Endereço do catálogo (cars.json) e dos arquivos .glb. No ambiente local de testes, window.C3D_BASE substitui este valor. */
-const BASE = (typeof window.C3D_BASE === 'string') ? window.C3D_BASE : 'https://cdn.jsdelivr.net/gh/alexiskara/autoford-carros3d@303be88198918db7d067f38803c188f3d0642c7d';
+/* Configuração da loja (loja.config.json): identidade, plataforma, catálogo e veículos.
+   window.APC_CONFIG (objeto ou endereço do .json) substitui o arquivo padrão que fica ao lado deste script. */
+const CFG_URL_PADRAO = new URL('./loja.config.json', import.meta.url).href;
+async function carregarConfig() {
+  let c = window.APC_CONFIG, url = CFG_URL_PADRAO;
+  try {
+    if (typeof c === 'string') { url = new URL(c, location.href).href; c = await (await fetch(url)).json(); }
+    else if (!c) { const r = await fetch(url); c = r.ok ? await r.json() : {}; }
+  } catch (e) { c = {}; }
+  c = c || {};
+  return { url: url, cfg: Object.assign({ plataforma: 'iset', base: '', catalogo: '', veiculos: 'cars.json', carrosVisiveis: null, buscaUrl: '', moeda: 'BRL' }, c, { loja: Object.assign({ nome: '', whatsapp: '', pagina3d: '' }, c.loja || {}) }) };
+}
+const { url: CFG_URL, cfg: CFG } = await carregarConfig();
+const relCfg = (u) => (u ? new URL(u, CFG_URL).href : '');
+const BASE = (typeof window.C3D_BASE === 'string') ? window.C3D_BASE : (CFG.base ? relCfg(CFG.base).replace(/\/$/, '') : 'https://cdn.jsdelivr.net/gh/alexiskara/autoford-carros3d@303be88198918db7d067f38803c188f3d0642c7d');
 const ZONAS = {
   'capo': { nome: 'Capô', termo: 'capô', cam: [0, 52, 70] },
   'parachoque-d': { nome: 'Para-choque dianteiro', termo: 'para-choque dianteiro', cam: [0, 78, 75] },
@@ -59,7 +73,7 @@ const CARROS_EXEMPLO = ['chevrolet-onix'];
 const CORES = [['Original', null], ['Branco', [.9, .9, .88]], ['Prata', [.56, .59, .63]], ['Preto', [.02, .02, .025]], ['Vermelho', [.62, .0, .03]], ['Azul', [.02, .12, .52]], ['Verde', [.0, .26, .11]], ['Amarelo', [.96, .66, .0]]];
 const TETA = { '+z': 0, '-z': 180, '+x': 90, '-x': -90 };
 const PLACA_API = '';
-const WHATSAPP = zapLoja();
+const WHATSAPP = String(CFG.loja.whatsapp || '').replace(/\D/g, '') || zapLoja();
 const $ = (id) => document.getElementById(id);
 const semAcento = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const semHifen = (t) => t.replace(/-/g, '');
@@ -117,6 +131,9 @@ function apiBusca() {
   return window.C3D_API || null;
 }
 function urlBusca(q) {
+  const padrao = { shopify: '/search?q={q}', woocommerce: '/?s={q}&post_type=product' }[CFG.plataforma];
+  const padraoBusca = CFG.buscaUrl || padrao;
+  if (padraoBusca) return padraoBusca.replace('{q}', encodeURIComponent(q));
   const f = document.getElementById('frmbusca');
   const base = (f && f.getAttribute('action')) || '/q';
   return base + (base.indexOf('?') >= 0 ? '&' : '?') + 'keywords=' + encodeURIComponent(q);
@@ -152,19 +169,64 @@ async function buscarAPI(q) {
   const d = await r.json();
   return (d && d.produtos) || [];
 }
+async function buscarShopify(q) {
+  const r = await fetch('/search/suggest.json?q=' + encodeURIComponent(q) + '&resources[type]=product&resources[limit]=12');
+  if (!r.ok) throw new Error('http-' + r.status);
+  const d = await r.json(); const ps = (((d.resources || {}).results || {}).products) || [];
+  return ps.map((x) => ({ nome: x.title, url: x.url, img: x.image || (x.featured_image && x.featured_image.url) || '', preco: fmtPreco(x.price) }));
+}
+async function buscarWoo(q) {
+  const r = await fetch('/wp-json/wc/store/v1/products?search=' + encodeURIComponent(q) + '&per_page=12');
+  if (!r.ok) throw new Error('http-' + r.status);
+  const ps = await r.json();
+  return ps.map((x) => { const pr = x.prices || {}, f = Math.pow(10, pr.currency_minor_unit == null ? 2 : pr.currency_minor_unit); return { nome: x.name, url: x.permalink, img: (x.images && x.images[0] && x.images[0].src) || '', preco: pr.price ? fmtPreco(pr.price / f) : '' }; });
+}
 async function buscar(q) {
   if (cache[q]) return cache[q];
   let lista;
-  try { lista = await buscarHTML(q); } catch (e) { lista = await buscarAPI(q); }
+  if (CFG.plataforma === 'shopify') lista = await buscarShopify(q);
+  else if (CFG.plataforma === 'woocommerce') lista = await buscarWoo(q);
+  else if (CFG.plataforma === 'generica') lista = [];
+  else { try { lista = await buscarHTML(q); } catch (e) { lista = await buscarAPI(q); } }
   cache[q] = lista;
   return lista;
 }
 
 /* Catálogo */
-const cat = await (await fetch(BASE + '/cars.json')).json();
-carros = CARROS_EXEMPLO.length ? cat.cars.filter((c) => CARROS_EXEMPLO.includes(c.id)) : cat.cars;
-if (!carros.length) carros = cat.cars;
+const carregarJSON = async (u) => { try { const r = await fetch(u); return r.ok ? await r.json() : null; } catch (e) { return null; } };
+const cat3d = await carregarJSON(BASE + '/' + (CFG.veiculos || 'cars.json'));
+/* catalogo.json: { veiculos: [...], produtos: [...] } gerado pelo catálogo da loja (veja ferramentas/gerar-catalogo.mjs) */
+const CAT = CFG.catalogo ? await carregarJSON(relCfg(CFG.catalogo)) : null;
+const mapa3d = new Map(((cat3d && cat3d.cars) || []).map((c) => [c.id, c]));
+const listaV = [];
+((CAT && CAT.veiculos) || []).forEach((v) => {
+  const b = mapa3d.get(v.id) || {};
+  listaV.push(Object.assign({}, b, { id: v.id, brand: v.marca || b.brand, model: v.modelo || b.model, category: v.categoria || b.category || '', anos: v.anos || null, motor: v.motor || '', imagem: v.imagem || '', file: v.arquivo3d || b.file || '' }));
+  mapa3d.delete(v.id);
+});
+mapa3d.forEach((b) => listaV.push(b));
+carros = listaV.filter((c) => c.brand && c.model);
+if (Array.isArray(CFG.carrosVisiveis) && CFG.carrosVisiveis.length) { const f = carros.filter((c) => CFG.carrosVisiveis.includes(c.id)); if (f.length) carros = f; }
 const marcas = [...new Set(carros.map((c) => c.brand))];
+const fmtPreco = (v) => { if (v == null || v === '') return ''; if (typeof v === 'string' && /[^\d.,-]/.test(v)) return v; const n = typeof v === 'number' ? v : parseFloat(String(v).replace(/\./g, '').replace(',', '.')); if (!isFinite(n)) return String(v); try { return n.toLocaleString('pt-BR', { style: 'currency', currency: (CAT && CAT.moeda) || CFG.moeda || 'BRL' }); } catch (e) { return String(n); } };
+/* Produtos do catálogo para uma parte: respeita a compatibilidade com o veículo aberto.
+   _c: 2 = serve neste veículo, 1 = universal, 0 = sem informação de compatibilidade */
+function chavesDaZona(z) { return [z].concat((typeof GRUPO_CHAVES !== 'undefined' && GRUPO_CHAVES[z]) || []); }
+function produtosDaZona(z) {
+  if (!CAT || !CAT.produtos) return [];
+  const ks = chavesDaZona(z), out = [];
+  CAT.produtos.forEach((pr) => {
+    const alvo = (pr.pecas || []).concat(pr.sistemas || []);
+    if (!ks.some((k) => alvo.indexOf(k) >= 0)) return;
+    let c = 0;
+    if (pr.universal) c = 1; else if (pr.veiculos && pr.veiculos.length && atual) { if (pr.veiculos.indexOf(atual.id) < 0) return; c = 2; }
+    out.push({ pr: pr, c: c });
+  });
+  out.sort((a, b) => b.c - a.c);
+  return out.map((o) => Object.assign({}, o.pr, { img: o.pr.img || o.pr.imagem || '', preco: fmtPreco(o.pr.preco), preco_de: fmtPreco(o.pr.preco_de), _c: o.c }));
+}
+const memoContagem = {};
+function contagemZona(z) { if (!CAT) return null; const k = (atual ? atual.id : '') + '|' + z; if (memoContagem[k] == null) memoContagem[k] = produtosDaZona(z).length; return memoContagem[k]; }
 
 function montarMarcas() {
   const box = $('c3d-marcas'); box.textContent = '';
@@ -196,18 +258,19 @@ function abrir(c) {
   if (trocouMarca) montarModelos(c.brand);
   marcarAtivos();
   $('c3d-marca-nome').textContent = c.brand; $('c3d-modelo-nome').textContent = c.model;
-  $('c3d-carga').classList.remove('off'); $('c3d-barra').style.width = '0';
+  $('c3d-palco').classList.toggle('c3d-sem-carro', !c.file);
+  if (c.file) { $('c3d-carga').classList.remove('off'); $('c3d-barra').style.width = '0'; } else $('c3d-carga').classList.add('off');
   $('c3d-carga-txt').textContent = 'Carregando ' + c.brand + ' ' + c.model + '\u2026';
   mv.querySelector('.c3d-pin').hidden = true;
-  mv.poster = BASE + '/posters/poster-' + c.id + '.webp';
-  mv.src = BASE + '/assets/' + c.file;
+  if (c.file) { mv.poster = BASE + '/posters/poster-' + c.id + '.webp'; mv.src = BASE + '/assets/' + c.file; }
+  atualizarSemCarro(c);
   const cr = c.credit || {};
   const p = $('c3d-credito'); p.textContent = 'Modelo 3D: ' + (cr.sourceName || c.model) + ' por ';
   const a = el('a', null, cr.author || 'autor'); if (seguro(cr.authorUrl)) { a.href = cr.authorUrl; a.target = '_blank'; a.rel = 'noopener'; } p.appendChild(a);
   p.appendChild(document.createTextNode(' · ' + (cr.license || '') + ' · '));
   const f = el('a', null, 'fonte'); if (seguro(cr.sourceUrl)) { f.href = cr.sourceUrl; f.target = '_blank'; f.rel = 'noopener'; } p.appendChild(f);
   p.appendChild(document.createTextNode('. Marcas e logos pertencem às respectivas fabricantes; imagens ilustrativas.'));
-  montarCores(); painelInicial();
+  montarCores(); painelInicial(); atualizarSemCarro(c); atualizarContagens();
   $('c3d-dica').classList.remove('off');
   guardar('c3d_carro', c.id); mostrarGaragem(); sincronizarUrl(null); document.title = c.brand + ' ' + c.model + ' - Peças em 3D';
   track('c3d_carro', { carro: c.id, marca: c.brand, modelo: c.model });
@@ -284,7 +347,7 @@ mv.addEventListener('error', () => { $('c3d-carga-txt').textContent = 'Não foi 
 
 function prePrecarregar() {
   const vizinhos = carros.filter((c) => c.brand === atual.brand && c.id !== atual.id).slice(0, 2);
-  setTimeout(() => vizinhos.forEach((c) => { try { fetch(BASE + '/assets/' + c.file, { priority: 'low' }).catch(() => {}); } catch (e) {} }), 2500);
+  setTimeout(() => vizinhos.filter((c) => c.file).forEach((c) => { try { fetch(BASE + '/assets/' + c.file, { priority: 'low' }).catch(() => {}); } catch (e) {} }), 2500);
 }
 function frenteTheta() { return TETA[(atual && atual.frente) || '+z']; }
 function vista(dTheta, phi, raio) { return (frenteTheta() + dTheta) + 'deg ' + phi + 'deg ' + raio + '%'; }
@@ -915,7 +978,104 @@ function iniciarGaveta() {
   ajusta();
 }
 
+/* ===== Mapa de peças por sistemas (com contagem de produtos compatíveis) ===== */
+const MAPA_CARRO = '<path class="corpo" d="M30 8 Q60 0 90 8 Q104 12 104 30 L106 190 Q106 232 60 234 Q14 232 14 190 L16 30 Q16 12 30 8Z"/>' +
+  '<g class="z" data-z="parachoque-d" tabindex="0" role="button"><path d="M26 8 Q60 -1 94 8 L92 22 Q60 15 28 22Z"/></g>' +
+  '<g class="z" data-z="farol" tabindex="0" role="button"><rect x="19" y="24" width="20" height="9" rx="3"/><rect x="81" y="24" width="20" height="9" rx="3"/></g>' +
+  '<g class="z" data-z="capo" tabindex="0" role="button"><path d="M32 36 Q60 30 88 36 L90 82 L30 82Z"/></g>' +
+  '<g class="z" data-z="parabrisa" tabindex="0" role="button"><path d="M31 84 L89 84 L84 106 L36 106Z"/></g>' +
+  '<g class="z" data-z="limpador" tabindex="0" role="button"><path d="M36 102 L80 91 M40 104 L86 98" fill="none" stroke-width="3" stroke-linecap="round"/></g>' +
+  '<g class="z" data-z="teto" tabindex="0" role="button"><rect x="36" y="108" width="48" height="46" rx="5"/></g>' +
+  '<g class="z" data-z="portas" tabindex="0" role="button"><rect x="16" y="86" width="12" height="66" rx="4"/><rect x="92" y="86" width="12" height="66" rx="4"/></g>' +
+  '<g class="z" data-z="retrovisor" tabindex="0" role="button"><circle cx="9" cy="92" r="6"/><circle cx="111" cy="92" r="6"/></g>' +
+  '<g class="z" data-z="rodas" tabindex="0" role="button"><rect x="3" y="38" width="9" height="26" rx="3"/><rect x="108" y="38" width="9" height="26" rx="3"/><rect x="3" y="170" width="9" height="26" rx="3"/><rect x="108" y="170" width="9" height="26" rx="3"/></g>' +
+  '<g class="z" data-z="portamalas" tabindex="0" role="button"><path d="M32 158 L88 158 L90 204 L30 204Z"/></g>' +
+  '<g class="z" data-z="lanterna" tabindex="0" role="button"><rect x="19" y="206" width="20" height="9" rx="3"/><rect x="81" y="206" width="20" height="9" rx="3"/></g>' +
+  '<g class="z" data-z="parachoque-t" tabindex="0" role="button"><path d="M28 218 Q60 224 92 218 L90 228 Q60 236 30 228Z"/></g>';
+const MAPA_NOS = {
+  motor: [
+    { k: 'radiador', x: 30, y: 24, w: 260, h: 34 }, { k: 'arrefecimento', x: 30, y: 74, w: 88, h: 44, t: 'Arrefecimento' }, { k: 'bateria', x: 202, y: 74, w: 88, h: 44 },
+    { k: 'alternador', x: 30, y: 134, w: 88, h: 44 }, { k: 'motor', x: 126, y: 134, w: 68, h: 110 }, { k: 'turbo', x: 202, y: 134, w: 88, h: 44 },
+    { k: 'distribuicao', x: 30, y: 190, w: 88, h: 44, t: 'Distribuição' }, { k: 'partida', x: 202, y: 190, w: 88, h: 44, t: 'Partida' },
+    { k: 'bomba-comb', x: 30, y: 252, w: 88, h: 40, t: 'Bomba comb.' }, { k: 'motor-v6', x: 126, y: 252, w: 68, h: 40, t: 'Motor V6' }, { k: 'escapamento', x: 202, y: 252, w: 88, h: 40 }
+  ],
+  chassi: [
+    { k: 'rodas', x: 14, y: 36, w: 40, h: 76, t: 'Rodas' }, { k: 'rodas', x: 266, y: 36, w: 40, h: 76, t: 'Rodas' },
+    { k: 'freios', x: 62, y: 44, w: 52, h: 24 }, { k: 'freios', x: 206, y: 44, w: 52, h: 24 },
+    { k: 'suspensao', x: 70, y: 76, w: 180, h: 28 }, { k: 'direcao', x: 100, y: 112, w: 120, h: 24 }, { k: 'lift', x: 100, y: 144, w: 120, h: 24, t: 'Kit lift' },
+    { k: 'embreagem', x: 110, y: 184, w: 100, h: 28 }, { k: 'cambio', x: 110, y: 218, w: 100, h: 44 },
+    { k: 'suspensao', x: 70, y: 330, w: 180, h: 28, t: 'Suspensão traseira' }, { k: 'rodas', x: 14, y: 306, w: 40, h: 76, t: 'Rodas' }, { k: 'rodas', x: 266, y: 306, w: 40, h: 76, t: 'Rodas' },
+    { k: 'freios', x: 62, y: 296, w: 52, h: 24, t: 'Freios' }, { k: 'freios', x: 206, y: 296, w: 52, h: 24, t: 'Freios' },
+    { k: 'escapamento', x: 236, y: 184, w: 66, h: 60, t: 'Escap.' }, { k: 'bomba-comb', x: 100, y: 384, w: 120, h: 44, t: 'Tanque e bomba' }
+  ]
+};
+const MAPA_DECO = {
+  motor: '<rect class="deco" x="8" y="8" width="304" height="300" rx="26"/><path class="deco" d="M160 58V74M74 118V134M246 118V134M160 244V252" fill="none"/>',
+  chassi: '<path class="deco" d="M70 20h180q18 0 18 18v380q0 18-18 18H70q-18 0-18-18V38q0-18 18-18Z"/><path class="deco" d="M160 262V330" fill="none" stroke-dasharray="4 4"/><path class="deco" d="M160 168V184" fill="none"/>'
+};
+const MAPA_SIM = [['arrefecimento', 'Veja o líquido circulando e o termostato abrindo.'], ['lift', 'Compare altura e pneus antes e depois do kit lift.'], ['motor-v6', 'Motor V6 explodido com as peças clicáveis.'], ['corte-termostato', 'Termostato em corte, abrindo com a temperatura.'], ['corte-borboleta', 'Corpo de borboleta e o ar passando.'], ['corte-solenoide', 'Solenoide energizando e abrindo a passagem.'], ['corte-sensor-oleo', 'Sensor de pressão de óleo em corte.']];
+const MAPA_ABAS = [['carroceria', 'Carroceria'], ['motor', 'Motor e arrefecimento'], ['chassi', 'Suspensão, freios e transmissão'], ['sim', 'Simuladores']];
+let mapaVista = 'carroceria';
+function contagemRotulo(z) { const n = contagemZona(z); return n == null ? null : n; }
+function desenharNos(vista) {
+  const nos = MAPA_NOS[vista], h = vista === 'motor' ? 316 : 446;
+  return '<svg viewBox="0 0 320 ' + h + '" role="group" aria-label="Mapa de peças">' + MAPA_DECO[vista] + nos.map((n) => '<g class="nd" data-z="' + n.k + '" tabindex="0" role="button" aria-label="' + (ZONAS[n.k] ? ZONAS[n.k].nome : n.k) + '"><rect x="' + n.x + '" y="' + n.y + '" width="' + n.w + '" height="' + n.h + '" rx="9"/><text x="' + (n.x + n.w / 2) + '" y="' + (n.y + n.h / 2 + 4) + '" text-anchor="middle">' + (n.t || (ZONAS[n.k] ? ZONAS[n.k].nome : n.k)) + '</text></g>').join('') + '</svg>';
+}
+function mostrarVistaMapa(v) {
+  mapaVista = v; const corpo = $('mp-corpo'); if (!corpo) return;
+  document.querySelectorAll('.mp-abas button').forEach((b) => b.setAttribute('aria-selected', b.dataset.v === v ? 'true' : 'false'));
+  if (v === 'sim') {
+    corpo.innerHTML = '<div class="mp-sim"></div>'; const g = corpo.firstChild;
+    MAPA_SIM.forEach((it) => { const n = contagemRotulo(it[0]); const b = el('button'); b.type = 'button'; b.dataset.z = it[0]; b.appendChild(el('b', null, ZONAS[it[0]].nome)); b.appendChild(el('small', null, it[1])); if (n != null) b.appendChild(el('em', null, n + (n === 1 ? ' produto' : ' produtos'))); g.appendChild(b); });
+  } else if (v === 'carroceria') corpo.innerHTML = '<svg viewBox="-8 -8 136 256" role="group" aria-label="Mapa de peças, vista de cima">' + MAPA_CARRO + '</svg>';
+  else corpo.innerHTML = desenharNos(v);
+  corpo.querySelectorAll('svg [data-z]').forEach((g) => {
+    const z = g.dataset.z, n = contagemRotulo(z);
+    if (n === 0) g.classList.add('sem');
+    if (n) {
+      const bb = g.getBBox(), cx = bb.x + bb.width - (v === 'carroceria' ? 2 : 6), cy = bb.y + (v === 'carroceria' ? 2 : 6);
+      const bd = document.createElementNS('http://www.w3.org/2000/svg', 'g'); bd.setAttribute('class', 'bd'); bd.setAttribute('transform', 'translate(' + cx + ',' + cy + ')');
+      const r = v === 'carroceria' ? 6 : 9; const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle'); c.setAttribute('r', r); const t = document.createElementNS('http://www.w3.org/2000/svg', 'text'); t.setAttribute('y', 3); if (v === 'carroceria') t.setAttribute('style', 'font-size:6px'); t.textContent = n > 99 ? '99+' : String(n);
+      bd.appendChild(c); bd.appendChild(t); g.appendChild(bd);
+    }
+    if (z === zonaAtual) g.classList.add('ativo');
+  });
+  const leg = $('mp-leg'); if (leg) leg.textContent = CAT ? 'Os números mostram os produtos compatíveis com ' + (atual ? atual.model : 'o veículo') + '. Partes esmaecidas ainda não têm produtos.' : 'Toque numa parte para ver as peças compatíveis.';
+}
+function construirMapa() {
+  if ($('c3d-mapa-pop')) return;
+  const pop = el('div', 'c3d-mapa-pop'); pop.id = 'c3d-mapa-pop'; pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', 'Mapa de peças');
+  pop.innerHTML = '<div class="mp-cab"><strong>Mapa de peças</strong><span id="mp-veic"></span><button type="button" id="mp-x" aria-label="Fechar mapa">\u00d7</button></div><div class="mp-abas" role="tablist"></div><div class="mp-corpo" id="mp-corpo"></div><p class="mp-leg" id="mp-leg"></p>';
+  $('c3d-palco').appendChild(pop);
+  const abas = pop.querySelector('.mp-abas');
+  MAPA_ABAS.forEach((a) => { const b = el('button', null, a[1]); b.type = 'button'; b.setAttribute('role', 'tab'); b.dataset.v = a[0]; b.onclick = () => mostrarVistaMapa(a[0]); abas.appendChild(b); });
+  $('mp-x').onclick = fecharMapa;
+  const ir = (g) => { if (g && g.dataset.z) { fecharMapa(); escolher(g.dataset.z, true); } };
+  $('mp-corpo').addEventListener('click', (e) => ir(e.target.closest('[data-z]')));
+  $('mp-corpo').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { const g = e.target.closest('[data-z]'); if (g) { e.preventDefault(); ir(g); } } });
+}
+function abrirMapa() {
+  construirMapa(); const pop = $('c3d-mapa-pop');
+  $('mp-veic').textContent = atual ? atual.brand + ' ' + atual.model : '';
+  let v = mapaVista; if (zonaAtual) { const sec = SECOES.find((sc) => sc[1].indexOf(zonaAtual) >= 0 || (ZONAS[zonaAtual] && ZONAS[zonaAtual].maq && sc[1].indexOf(ZONAS[zonaAtual].maq) >= 0)); if (sec) v = { 'Carroceria': 'carroceria', 'Motor e arrefecimento': 'motor', 'Suspensão, freios e direção': 'chassi', 'Transmissão': 'chassi', 'Elétrica': 'motor', 'Simuladores em corte': 'sim' }[sec[0]] || v; }
+  mostrarVistaMapa(v); pop.classList.add('on'); track('c3d_mapa', { carro: atual && atual.id });
+  setTimeout(() => { try { $('mp-x').focus(); } catch (er) {} }, 50);
+}
+function fecharMapa() { const pop = $('c3d-mapa-pop'); if (pop) pop.classList.remove('on'); }
+function atualizarContagens() { const pop = $('c3d-mapa-pop'); if (pop) { $('mp-veic').textContent = atual ? atual.brand + ' ' + atual.model : ''; if (pop.classList.contains('on')) mostrarVistaMapa(mapaVista); } }
+/* veículo sem modelo 3D da carroceria: o palco mostra o aviso e o mapa de peças */
+function atualizarSemCarro(c) {
+  const palco = $('c3d-palco'); let b = palco.querySelector('.c3d-semcarro');
+  if (!b) {
+    b = el('div', 'c3d-semcarro');
+    b.innerHTML = '<div><svg viewBox="0 0 120 240"><path d="M30 8 Q60 0 90 8 Q104 12 104 30 L106 190 Q106 232 60 234 Q14 232 14 190 L16 30 Q16 12 30 8Z"/><path d="M31 84 L89 84 L84 106 L36 106ZM36 108h48v46H36Z"/></svg><strong></strong><p>Este veículo ainda não tem modelo 3D da carroceria. Use o mapa para ver as peças e os simuladores.</p><button type="button">Abrir o mapa de peças</button></div>';
+    b.querySelector('button').onclick = abrirMapa; palco.insertBefore(b, palco.firstChild);
+  }
+  b.querySelector('strong').textContent = c ? c.brand + ' ' + c.model : '';
+  if (c && !c.file) { const cr = $('c3d-credito'); if (cr) cr.textContent = ''; if (!atualizarSemCarro.jaAbriu) { atualizarSemCarro.jaAbriu = true; setTimeout(abrirMapa, 500); } }
+}
 function marcarZona(z) {
+  document.querySelectorAll('#c3d-mapa-pop [data-z]').forEach((g) => g.classList.toggle('ativo', g.dataset.z === z));
   document.querySelectorAll('.c3d-mapa .z').forEach((g) => g.classList.toggle('on', g.dataset.z === z));
   document.querySelectorAll('.c3d-zonas button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.z === z));
 }
@@ -1187,7 +1347,7 @@ async function adicionarCarrinho(pid, btn, p) {
 }
 function zapLoja() {
   const h = [...document.querySelectorAll('a[href]')].map((x) => x.getAttribute('href') || '').find((u) => /wa\.me\/\d+|whatsapp\.com\/send\/?\?phone=\d+/.test(u));
-  const m = h && h.match(/(\d{10,15})/); return m ? m[1] : 'https://alexiskara.github.io/autoford-carros3d/motor/';
+  const m = h && h.match(/(\d{10,15})/); return m ? m[1] : '';
 }
 const normaliza = (t) => semAcento(String(t || '')).toLowerCase().replace(/[^a-z0-9]/g, '');
 function abrirPorNome() {
@@ -1233,9 +1393,12 @@ async function mostrarPecas(z) {
   const vm = $('c3d-ver-modelo'); vm.hidden = false; vm.href = urlBusca(atual.brand + ' ' + atual.model); vm.textContent = 'Todas as peças do ' + atual.model;
   const dv = $('c3d-duvida'); if (WHATSAPP) { dv.hidden = false; dv.href = 'https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent('Olá! Preciso de ' + Z.nome.toLowerCase() + ' para ' + atual.brand + ' ' + atual.model + (ano ? ' ' + ano : '') + '.'); }
   let prods = [], tipo = '', falhou = false;
-  try {
-    for (let i = 0; i < qs.length; i++) { prods = await buscar(qs[i][0]); if (meu !== seq) return; if (prods.length) { tipo = qs[i][1]; break; } }
-  } catch (e) { falhou = true; }
+  if (CAT) { prods = produtosDaZona(z); if (prods.length) tipo = 'catalogo'; }
+  if (!prods.length) {
+    try {
+      for (let i = 0; i < qs.length; i++) { prods = await buscar(qs[i][0]); if (meu !== seq) return; if (prods.length) { tipo = qs[i][1]; break; } }
+    } catch (e) { falhou = true; }
+  }
   if (meu !== seq) return;
   box.textContent = '';
   if (falhou) {
@@ -1249,7 +1412,7 @@ async function mostrarPecas(z) {
     $('c3d-ph-sub').textContent = '0 produtos'; track('c3d_sem_resultado', { carro: atual.id, parte: z, ano: ano || '' }); return;
   }
   track('c3d_resultados', { carro: atual.id, parte: z, quantidade: prods.length, nivel: tipo });
-  $('c3d-ph-sub').textContent = prods.length + (prods.length > 1 ? ' produtos' : ' produto') + (tipo === 'modelo' ? (prods.length > 1 ? ' compatíveis' : ' compatível') + ' com o ' + atual.model : tipo === 'marca' ? ' da marca ' + atual.brand + ' (confira a compatibilidade)' : ' relacionados (confira a compatibilidade)');
+  $('c3d-ph-sub').textContent = prods.length + (prods.length > 1 ? ' produtos' : ' produto') + (tipo === 'catalogo' ? ' para o ' + atual.model : tipo === 'modelo' ? (prods.length > 1 ? ' compatíveis' : ' compatível') + ' com o ' + atual.model : tipo === 'marca' ? ' da marca ' + atual.brand + ' (confira a compatibilidade)' : ' relacionados (confira a compatibilidade)');
   const ul = el('ul', 'c3d-lista');
   prods.forEach((p, i) => {
     if (!seguro(p.url)) return;
@@ -1265,6 +1428,9 @@ async function mostrarPecas(z) {
     const bd = el('div', 'c3d-sel-bd');
     const a1 = numPreco(p.preco), a0 = numPreco(p.preco_de);
     if (a1 && a0 && a0 > a1) bd.appendChild(el('span', 'c3d-bd off', '-' + Math.round((1 - a1 / a0) * 100) + '%'));
+    if (p._c === 2) bd.appendChild(el('span', 'c3d-bd ok', 'Serve no ' + atual.model + (p.anos && p.anos.length ? ' \u00b7 ' + p.anos[0] + (p.anos[1] && p.anos[1] !== p.anos[0] ? '\u2013' + p.anos[1] : '') : '')));
+    else if (p._c === 1) bd.appendChild(el('span', 'c3d-bd ok', 'Universal'));
+    else if (p._c === 0 && tipo === 'catalogo') bd.appendChild(el('span', 'c3d-bd chk', 'Confira a compatibilidade'));
     if (ano) { const fx = faixaAno(p.nome); const serve = fx && +ano >= fx[0] && +ano <= fx[1]; bd.appendChild(el('span', 'c3d-bd ' + (serve ? 'ok' : 'chk'), serve ? 'Serve no ' + ano : 'Confira o ano')); }
     if (bd.children.length) tx.appendChild(bd);
     if (p.preco) { const pr = el('div', 'c3d-preco'); if (p.preco_de) pr.appendChild(el('s', null, p.preco_de)); pr.appendChild(document.createTextNode(p.preco)); tx.appendChild(pr); }
@@ -1272,7 +1438,7 @@ async function mostrarPecas(z) {
     if (temImg) { const zb = el('button', 'c3d-zoom'); zb.type = 'button'; zb.title = 'Ampliar foto'; zb.setAttribute('aria-label', 'Ampliar foto de ' + p.nome); zb.innerHTML = '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M11 8v6M8 11h6"/></svg>'; zb.onclick = () => abrirLightbox(ft.dataset.src || p.img, p.nome); li.appendChild(zb); }
     const acoes = el('div', 'c3d-acoes');
     const pid = (p.url.match(/-p(\d+)(?:[\/?#]|$)/) || [])[1];
-    const compravel = a1 && a1 > 0 && pid;
+    const compravel = CFG.plataforma === 'iset' && a1 && a1 > 0 && pid;
     if (compravel) { const cb = el('button', 'c3d-add', 'Adicionar ao carrinho'); cb.type = 'button'; cb.onclick = () => adicionarCarrinho(pid, cb, p); acoes.appendChild(cb); }
     else { const vb = el('a', 'c3d-add sec', 'Consultar valor'); vb.href = p.url; acoes.appendChild(vb); }
     li.appendChild(acoes);
@@ -1305,7 +1471,14 @@ if (PLACA_API) { $('c3d-placa').hidden = false; $('c3d-placa-ok').onclick = busc
   botao('c3d-qual', 'Qualidade realista (sombras e reflexos)', '<svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/><path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16Z"/></svg>', true);
   botao('c3d-explodir', 'Expandir ou montar a peça', '<svg viewBox="0 0 24 24"><path d="M12 3v5M9.5 5.5 12 3l2.5 2.5M12 21v-5M9.5 18.5 12 21l2.5-2.5M3 12h5M5.5 9.5 3 12l2.5 2.5M21 12h-5M18.5 9.5 21 12l-2.5 2.5"/></svg>', true);
   $('c3d-explodir').classList.remove('c3d-off');
+  if (!$('c3d-mapa-btn')) {
+    const bm = el('button', 'c3d-ico'); bm.id = 'c3d-mapa-btn'; bm.type = 'button'; bm.title = 'Mapa de peças por sistema'; bm.setAttribute('aria-label', 'Mapa de peças por sistema');
+    bm.innerHTML = '<svg viewBox="0 0 24 24"><path d="M9 4 3 6.5v13L9 17l6 3 6-2.5v-13L15 7 9 4Z"/><path d="M9 4v13M15 7v13"/></svg>'; f.appendChild(bm);
+  }
+  const mm = palco.querySelector('.c3d-mapa'); if (mm && !mm.querySelector('.c3d-mapa-amp')) { const ba = el('button', 'c3d-mapa-amp', 'Ampliar'); ba.type = 'button'; ba.onclick = abrirMapa; mm.appendChild(ba); }
 })();
+$('c3d-mapa-btn').onclick = () => { const pop = $('c3d-mapa-pop'); if (pop && pop.classList.contains('on')) fecharMapa(); else abrirMapa(); };
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { const pop = $('c3d-mapa-pop'); if (pop && pop.classList.contains('on')) { e.stopImmediatePropagation(); fecharMapa(); } } }, true);
 $('c3d-ar').onclick = abrirAR;
 $('c3d-qual').onclick = () => { qualAlta = !qualAlta; guardar('c3d_qual', qualAlta ? '1' : '0'); if (motor && motor.qualidade) motor.qualidade(qualAlta); atualizarBotoes(); avisar(qualAlta ? 'Qualidade realista ligada' : 'Qualidade leve (mais rápida)'); };
 $('c3d-360').onclick = () => { ver360 = !ver360; if (motorTipo) mostrarMotor(motorTipo, true); };

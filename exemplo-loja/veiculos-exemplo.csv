@@ -1,0 +1,8 @@
+id;marca;modelo;anos;motor;categoria;arquivo3d
+chevrolet-onix;Chevrolet;Onix;2012-2024;1.0 / 1.4;hatch;
+jeep-compass;Jeep;Compass;2011-2021;2.0;suv;
+jeep-wrangler;Jeep;Wrangler;2007-2025;3.6 V6;suv;
+dodge-ram-2500;Dodge;RAM 2500;2010-2022;6.7 Diesel;pickup;
+ford-f150;Ford;F-150;2015-2024;3.5 V6;pickup;
+porsche-cayenne;Porsche;Cayenne;2011-2018;3.6 V6;suv;
+volvo-xc60;Volvo;XC60;2010-2017;2.0 Turbo;suv;

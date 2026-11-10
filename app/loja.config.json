@@ -1,0 +1,8 @@
+{
+  "loja": { "nome": "VARIADOS", "whatsapp": "", "pagina3d": "/3d-carros/" },
+  "plataforma": "iset",
+  "base": "https://cdn.jsdelivr.net/gh/alexiskara/autoford-carros3d@303be88198918db7d067f38803c188f3d0642c7d",
+  "veiculos": "cars.json",
+  "carrosVisiveis": ["chevrolet-onix"],
+  "catalogo": ""
+}

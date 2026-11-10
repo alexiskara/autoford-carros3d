@@ -1,0 +1,9 @@
+{
+  "loja": { "nome": "Loja Exemplo", "whatsapp": "5511999999999", "pagina3d": "/encontre-pecas/" },
+  "plataforma": "generica",
+  "buscaUrl": "/busca?q={q}",
+  "base": "https://cdn.jsdelivr.net/gh/alexiskara/autoford-carros3d@303be88198918db7d067f38803c188f3d0642c7d",
+  "veiculos": "cars.json",
+  "catalogo": "catalogo.json",
+  "carrosVisiveis": ["chevrolet-onix", "jeep-compass", "jeep-wrangler", "dodge-ram-2500", "ford-f150", "porsche-cayenne", "volvo-xc60"]
+}
