@@ -911,36 +911,43 @@ function marcarZona(z) {
   document.querySelectorAll('.c3d-zonas button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.z === z));
 }
 
-let motor = null, motorTipo = null, motorSeq = 0;
+let motor = null, motorTipo = null, motorSeq = 0, motorTimer = 0;
 function sincronizarMotor() { if (motor) motor.selecionar(zonaAtual && zonaAtual !== motorTipo ? zonaAtual : null); }
 function setExplodir(on) { if (motor) motor.explodir(on); const b = $('c3d-explodir'); if (b) b.setAttribute('aria-pressed', on ? 'true' : 'false'); }
-/* mostra no palco o modelo 3D da peça (motor, freios, suspensão...) no lugar do carro */
+/* mostra no palco o modelo 3D da peça (motor, freios, suspensão...) no lugar do carro, com troca suave */
 function mostrarMotor(tipo) {
   const palco = $('c3d-palco'), box = $('c3d-motor3d');
-  palco.classList.add('c3d-modo-motor'); box.hidden = false;
+  clearTimeout(motorTimer);
+  palco.classList.add('c3d-modo-motor');
   if (motor && motorTipo === tipo) { sincronizarMotor(); return; }
-  if (motor) { motor.destruir(); motor = null; motorTipo = null; }
   const meu = ++motorSeq;
-  box.textContent = ''; box.appendChild(el('div', 'c3d-motor-msg', 'Carregando modelo 3D\u2026'));
   const onParte = (k) => { if (ZONAS[k]) escolher(k, false); };
-  import(tipo === 'motor' ? MOTOR_JS : MAQUINAS_JS).then((mod) => {
-    if (meu !== motorSeq || !palco.classList.contains('c3d-modo-motor')) return;
-    box.textContent = '';
-    motor = tipo === 'motor' ? mod.montarMotor(box, { onParte: onParte }) : mod.montarMaquina(box, tipo, { onParte: onParte });
-    motorTipo = tipo;
-    box.appendChild(el('div', 'c3d-motor-dica', 'Arraste para girar \u00b7 clique em uma peça'));
-    setExplodir(true); sincronizarMotor();
-  }).catch(() => {
+  const carregar = () => {
     if (meu !== motorSeq) return;
-    box.textContent = '';
-    box.appendChild(el('div', 'c3d-motor-msg', 'Não foi possível carregar o modelo 3D. Use a lista de peças ao lado.'));
-    track('c3d_motor_erro', { tipo: tipo });
-  });
+    if (motor) { motor.destruir(); motor = null; motorTipo = null; }
+    box.classList.remove('c3d-troca'); box.textContent = ''; box.appendChild(el('div', 'c3d-motor-msg', 'Carregando modelo 3D\u2026'));
+    import(tipo === 'motor' ? MOTOR_JS : MAQUINAS_JS).then((mod) => {
+      if (meu !== motorSeq || !palco.classList.contains('c3d-modo-motor')) return;
+      box.textContent = '';
+      motor = tipo === 'motor' ? mod.montarMotor(box, { onParte: onParte }) : mod.montarMaquina(box, tipo, { onParte: onParte });
+      motorTipo = tipo;
+      box.appendChild(el('div', 'c3d-motor-dica', 'Arraste para girar \u00b7 clique em uma peça'));
+      const b = $('c3d-explodir'); if (b) b.setAttribute('aria-pressed', 'true'); /* o modelo entra montado e abre sozinho */
+      sincronizarMotor();
+    }).catch(() => {
+      if (meu !== motorSeq) return;
+      box.textContent = '';
+      box.appendChild(el('div', 'c3d-motor-msg', 'Não foi possível carregar o modelo 3D. Use a lista de peças ao lado.'));
+      track('c3d_motor_erro', { tipo: tipo });
+    });
+  };
+  if (motor) { box.classList.add('c3d-troca'); motorTimer = setTimeout(carregar, 240); } else carregar();
 }
 function esconderMotor() {
-  motorSeq++;
-  $('c3d-palco').classList.remove('c3d-modo-motor'); $('c3d-motor3d').hidden = true;
-  if (motor) { motor.destruir(); motor = null; motorTipo = null; }
+  motorSeq++; clearTimeout(motorTimer);
+  $('c3d-palco').classList.remove('c3d-modo-motor');
+  const antigo = motor; motor = null; motorTipo = null;
+  if (antigo) setTimeout(() => { try { antigo.destruir(); } catch (er) {} }, 900); /* destrói depois do fade de saída */
 }
 function escolher(z, mover) {
   zonaAtual = z; marcarZona(z); $('c3d-dica').classList.add('off'); sincronizarUrl(z); track('c3d_parte', { carro: atual.id, parte: z, origem: mover ? 'lista' : 'clique3d' });
@@ -1170,7 +1177,7 @@ if (PLACA_API) { $('c3d-placa').hidden = false; $('c3d-placa-ok').onclick = busc
 /* garante o container e o botão do motor mesmo se o HTML colado na loja for de uma versão anterior */
 (function garantirMotorUI() {
   const palco = $('c3d-palco'); if (!palco) return;
-  if (!$('c3d-motor3d')) { const d = el('div', 'c3d-motor3d'); d.id = 'c3d-motor3d'; d.hidden = true; mv.insertAdjacentElement('afterend', d); }
+  if (!$('c3d-motor3d')) { const d = el('div', 'c3d-motor3d'); d.id = 'c3d-motor3d'; mv.insertAdjacentElement('afterend', d); }
   if (!$('c3d-explodir')) {
     const f = palco.querySelector('.c3d-ferr'); if (!f) return;
     const b = el('button', 'c3d-ico c3d-mot-ctl'); b.id = 'c3d-explodir'; b.type = 'button'; b.setAttribute('aria-pressed', 'true'); b.title = 'Expandir ou montar o motor'; b.setAttribute('aria-label', 'Expandir ou montar o motor');
