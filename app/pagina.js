@@ -271,7 +271,7 @@ function abrir(c) {
   const f = el('a', null, 'fonte'); if (seguro(cr.sourceUrl)) { f.href = cr.sourceUrl; f.target = '_blank'; f.rel = 'noopener'; } p.appendChild(f);
   p.appendChild(document.createTextNode('. Marcas e logos pertencem às respectivas fabricantes; imagens ilustrativas.'));
   montarCores(); painelInicial(); atualizarSemCarro(c); atualizarContagens();
-  $('c3d-dica').classList.remove('off');
+  $('c3d-dica').classList.remove('off'); $('c3d-dica').textContent = 'Toque no capô, nos faróis ou nas rodas';
   guardar('c3d_carro', c.id); mostrarGaragem(); sincronizarUrl(null); document.title = c.brand + ' ' + c.model + ' - Peças em 3D';
   track('c3d_carro', { carro: c.id, marca: c.brand, modelo: c.model });
 }
@@ -980,18 +980,18 @@ function iniciarGaveta() {
 
 /* ===== Mapa de peças por sistemas (com contagem de produtos compatíveis) ===== */
 const MAPA_CARRO = '<path class="corpo" d="M30 8 Q60 0 90 8 Q104 12 104 30 L106 190 Q106 232 60 234 Q14 232 14 190 L16 30 Q16 12 30 8Z"/>' +
-  '<g class="z" data-z="parachoque-d" tabindex="0" role="button"><path d="M26 8 Q60 -1 94 8 L92 22 Q60 15 28 22Z"/></g>' +
+  '<g class="z" data-z="radiador" tabindex="0" role="button"><path d="M26 8 Q60 -1 94 8 L92 22 Q60 15 28 22Z"/></g>' +
   '<g class="z" data-z="farol" tabindex="0" role="button"><rect x="19" y="24" width="20" height="9" rx="3"/><rect x="81" y="24" width="20" height="9" rx="3"/></g>' +
-  '<g class="z" data-z="capo" tabindex="0" role="button"><path d="M32 36 Q60 30 88 36 L90 82 L30 82Z"/></g>' +
-  '<g class="z" data-z="parabrisa" tabindex="0" role="button"><path d="M31 84 L89 84 L84 106 L36 106Z"/></g>' +
+  '<g class="z" data-z="motor" tabindex="0" role="button"><path d="M32 36 Q60 30 88 36 L90 82 L30 82Z"/></g>' +
+  '<g class="z" data-z="limpador" tabindex="0" role="button"><path d="M31 84 L89 84 L84 106 L36 106Z"/></g>' +
   '<g class="z" data-z="limpador" tabindex="0" role="button"><path d="M36 102 L80 91 M40 104 L86 98" fill="none" stroke-width="3" stroke-linecap="round"/></g>' +
-  '<g class="z" data-z="teto" tabindex="0" role="button"><rect x="36" y="108" width="48" height="46" rx="5"/></g>' +
+  '<g class="dz"><rect x="36" y="108" width="48" height="46" rx="5"/></g>' +
   '<g class="z" data-z="portas" tabindex="0" role="button"><rect x="16" y="86" width="12" height="66" rx="4"/><rect x="92" y="86" width="12" height="66" rx="4"/></g>' +
   '<g class="z" data-z="retrovisor" tabindex="0" role="button"><circle cx="9" cy="92" r="6"/><circle cx="111" cy="92" r="6"/></g>' +
   '<g class="z" data-z="rodas" tabindex="0" role="button"><rect x="3" y="38" width="9" height="26" rx="3"/><rect x="108" y="38" width="9" height="26" rx="3"/><rect x="3" y="170" width="9" height="26" rx="3"/><rect x="108" y="170" width="9" height="26" rx="3"/></g>' +
-  '<g class="z" data-z="portamalas" tabindex="0" role="button"><path d="M32 158 L88 158 L90 204 L30 204Z"/></g>' +
+  '<g class="dz"><path d="M32 158 L88 158 L90 204 L30 204Z"/></g>' +
   '<g class="z" data-z="lanterna" tabindex="0" role="button"><rect x="19" y="206" width="20" height="9" rx="3"/><rect x="81" y="206" width="20" height="9" rx="3"/></g>' +
-  '<g class="z" data-z="parachoque-t" tabindex="0" role="button"><path d="M28 218 Q60 224 92 218 L90 228 Q60 236 30 228Z"/></g>';
+  '<g class="z" data-z="escapamento" tabindex="0" role="button"><path d="M28 218 Q60 224 92 218 L90 228 Q60 236 30 228Z"/></g>';
 const MAPA_NOS = {
   motor: [
     { k: 'radiador', x: 30, y: 24, w: 260, h: 34 }, { k: 'arrefecimento', x: 30, y: 74, w: 88, h: 44, t: 'Arrefecimento' }, { k: 'bateria', x: 202, y: 74, w: 88, h: 44 },
@@ -1031,6 +1031,7 @@ function mostrarVistaMapa(v) {
   else corpo.innerHTML = desenharNos(v);
   corpo.querySelectorAll('svg [data-z]').forEach((g) => {
     const z = g.dataset.z, n = contagemRotulo(z);
+    if (ZONAS[z]) g.setAttribute('aria-label', ZONAS[z].nome);
     if (n === 0) g.classList.add('sem');
     if (n) {
       const bb = g.getBBox(), cx = bb.x + bb.width - (v === 'carroceria' ? 2 : 6), cy = bb.y + (v === 'carroceria' ? 2 : 6);
@@ -1180,7 +1181,7 @@ function diagnosticar(sint) {
   zonaAtual = sint.modelo; marcarZona(sint.modelo); $('c3d-dica').classList.add('off'); sincronizarUrl(sint.modelo);
   track('c3d_diagnostico', { carro: atual.id, sintoma: sint.id });
   selMotor = sint.suspeitos; mostrarMotor(sint.modelo); irGaveta('meio'); seq++;
-  $('c3d-voltar').hidden = false; $('c3d-ph-tag').textContent = 'Diagnóstico por sintoma'; $('c3d-ph-tit').textContent = sint.nome; entradaTitulo();
+  emDiag = true; mostrarBusca(false); $('c3d-voltar').hidden = false; rotuloVoltar('Início'); $('c3d-ph-tag').textContent = 'Diagnóstico por sintoma'; $('c3d-ph-tit').textContent = sint.nome; entradaTitulo();
   $('c3d-ph-sub').textContent = sint.texto;
   const box = $('c3d-pc'); box.textContent = '';
   const w = el('div', 'c3d-rel'); w.appendChild(el('span', null, 'Peças suspeitas. Clique para ver os produtos.'));
@@ -1190,7 +1191,9 @@ function diagnosticar(sint) {
   $('c3d-ver').hidden = true; const vm = $('c3d-ver-modelo'); vm.hidden = false; vm.href = urlBusca(atual.brand + ' ' + atual.model); vm.textContent = 'Todas as peças do ' + atual.model;
 }
 function escolher(z, mover) {
-  selMotor = null;
+  if (REDIR_CARRO[z]) z = REDIR_CARRO[z];
+  else if (!ZONAS[z] || !ZONAS[z].maq) { avisar('Esta parte ainda não tem modelo 3D.'); return; }
+  selMotor = null; emDiag = false;
   zonaAtual = z; marcarZona(z); $('c3d-dica').classList.add('off'); sincronizarUrl(z); track('c3d_parte', { carro: atual.id, parte: z, origem: mover ? 'lista' : 'clique3d' });
   const Z = ZONAS[z];
   if (Z.maq) mostrarMotor(Z.maq); else esconderMotor();
@@ -1198,28 +1201,87 @@ function escolher(z, mover) {
   mostrarPecas(z);
 }
 
-function painelInicial() {
-  esconderMotor();
-  marcarZona(null); $('c3d-voltar').hidden = true; mv.querySelector('.c3d-pin').hidden = true;
-  $('c3d-ph-tag').textContent = 'Peças compatíveis';
-  $('c3d-ph-tit').textContent = atual.brand + ' ' + atual.model; entradaTitulo();
-  $('c3d-ph-sub').textContent = 'Clique em uma parte do carro ou escolha abaixo.';
+function rotuloVoltar(t) {
+  const b = $('c3d-voltar'); if (!b) return;
+  const nos = [...b.childNodes].filter((n) => n.nodeType === 3);
+  if (nos.length) nos[nos.length - 1].textContent = t; else b.appendChild(document.createTextNode(t));
+}
+function rotuloAnterior(z) { const mq = ZONAS[z].maq; if (mq && mq !== z) return ZONAS[mq].nome; const sx = sistemaDe(mq || z); return sx ? sx.nome : 'Início'; }
+function trilha(z) { const mq = ZONAS[z].maq, sx = sistemaDe(mq || z), t = [atual.model]; if (sx) t.push(sx.nome); if (mq && mq !== z) t.push(ZONAS[mq].nome); return t.join(' \u203a '); }
+function numProdutosSis(chaves) { if (!CAT) return null; let n = 0; chaves.forEach((k) => { n += contagemZona(k) || 0; }); return n; }
+function mostrarBusca(on) { const b = $('c3d-bz'); if (b) b.style.display = on ? '' : 'none'; }
+function garantirBusca() {
+  if ($('c3d-bz')) return;
+  const ph = document.querySelector('.c3d-ph'); if (!ph) return;
+  const w = el('div', 'c3d-bz'); w.id = 'c3d-bz';
+  w.innerHTML = '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="c3d-bz-in" type="search" placeholder="Buscar peça (ex.: cabeçote, freio, farol)" autocomplete="off" aria-label="Buscar peça ou sistema">';
+  ph.insertAdjacentElement('afterend', w);
+  w.querySelector('input').addEventListener('input', (e) => renderBuscaZona(e.target.value));
+}
+let idxBusca = null;
+function indiceBusca() {
+  if (idxBusca) return idxBusca;
+  idxBusca = Object.keys(ZONAS).filter((k) => ZONAS[k].maq).map((k) => {
+    const Z = ZONAS[k], mq = Z.maq, sx = sistemaDe(mq), caminho = [sx ? sx.nome : null, mq !== k ? ZONAS[mq].nome : null].filter(Boolean).join(' \u203a ');
+    return { k: k, nome: Z.nome, caminho: caminho, prin: mq === k, t: semAcento((Z.nome + ' ' + Z.termo + ' ' + caminho).toLowerCase()) };
+  });
+  return idxBusca;
+}
+function renderBuscaZona(q) {
+  const box = $('c3d-pc'), termo = semAcento(String(q || '').toLowerCase().trim());
+  if (termo.length < 2) { if (buscaAtiva) { buscaAtiva = false; if (zonaAtual && !emDiag) mostrarPecas(zonaAtual); else painelInicial(sistemaAtual); } return; }
+  buscaAtiva = true; seq++;
+  const ws = termo.split(/\s+/);
+  const res = indiceBusca().filter((i) => ws.every((w) => i.t.indexOf(w) >= 0)).sort((a, b) => (b.prin - a.prin) || (a.nome.length - b.nome.length)).slice(0, 12);
+  box.textContent = '';
+  if (!res.length) {
+    const v = el('div', 'c3d-vazio'); v.appendChild(el('strong', null, 'Nenhuma peça com esse nome')); v.appendChild(document.createTextNode('Tente outra palavra ou busque direto na loja.'));
+    const a = el('a', 'c3d-btn sec', 'Buscar \u201c' + q + '\u201d na loja'); a.href = urlBusca(q); a.style.marginTop = '12px'; v.appendChild(a); box.appendChild(v); return;
+  }
+  const l = el('div', 'c3d-mods');
+  res.forEach((i) => {
+    const b = el('button'); b.type = 'button'; const t = el('span'); t.appendChild(el('b', null, i.nome)); t.appendChild(el('small', null, i.caminho)); b.appendChild(t);
+    const n = CAT ? contagemZona(i.k) : null; if (n != null) b.appendChild(el('em', n ? 'tem' : '', n ? n + (n === 1 ? ' produto' : ' produtos') : 'sem produtos'));
+    b.onclick = () => { $('c3d-bz-in').value = ''; buscaAtiva = false; escolher(i.k, true); }; l.appendChild(b);
+  });
+  box.appendChild(l);
+}
+/* início: escolha do sistema; com sisId: modelos do sistema */
+function painelInicial(sisId) {
+  esconderMotor(); sistemaAtual = sisId || null; emDiag = false; buscaAtiva = false;
+  marcarZona(null); mv.querySelector('.c3d-pin').hidden = true;
+  const sx = sisId ? SISTEMAS.find((x) => x.id === sisId) : null, veic = atual.brand + ' ' + atual.model;
+  $('c3d-voltar').hidden = !sx; rotuloVoltar('Início');
+  $('c3d-ph-tag').textContent = sx ? atual.model : 'Peças para ' + veic;
+  $('c3d-ph-tit').textContent = sx ? sx.nome : 'O que você procura?'; entradaTitulo();
+  $('c3d-ph-sub').textContent = sx ? sx.desc : 'Escolha um sistema, busque uma peça ou descreva o problema.';
+  garantirBusca(); mostrarBusca(true); const inp = $('c3d-bz-in'); if (inp) inp.value = '';
   const box = $('c3d-pc'); box.textContent = '';
-  const diag = el('div', 'c3d-diag'); diag.appendChild(el('div', 'c3d-sec-t', 'Diagnóstico por sintoma'));
-  const dg = el('div', 'c3d-diag-b'); SINTOMAS.forEach((sn) => { const b = el('button', null, sn.nome); b.type = 'button'; b.onclick = () => diagnosticar(sn); dg.appendChild(b); }); diag.appendChild(dg); box.appendChild(diag);
-  const feitos = new Set();
-  const secao = (titulo, chaves) => {
-    const ks = chaves.filter((k) => ZONAS[k] && !ZONAS[k].oculta); if (!ks.length) return;
-    ks.forEach((k) => feitos.add(k)); box.appendChild(el('div', 'c3d-sec-t', titulo));
-    const g = el('div', 'c3d-zonas');
-    ks.forEach((k) => { const b = el('button', null, ZONAS[k].nome); b.type = 'button'; b.dataset.z = k; b.setAttribute('aria-pressed', 'false'); b.onclick = () => escolher(k, true); g.appendChild(b); });
+  if (!sx) {
+    const dt = document.createElement('details'); dt.className = 'c3d-diag';
+    const sm = document.createElement('summary'); sm.innerHTML = '<span>Não sabe qual peça precisa?</span><b>Diagnóstico por sintoma</b>'; dt.appendChild(sm);
+    const dg = el('div', 'c3d-diag-b'); SINTOMAS.forEach((sn) => { const b = el('button', null, sn.nome); b.type = 'button'; b.onclick = () => diagnosticar(sn); dg.appendChild(b); }); dt.appendChild(dg); box.appendChild(dt);
+    box.appendChild(el('div', 'c3d-sec-t', 'Escolha o sistema'));
+    const g = el('div', 'c3d-sis');
+    SISTEMAS.forEach((x) => {
+      const b = el('button'); b.type = 'button'; b.innerHTML = x.icone; b.appendChild(el('b', null, x.nome));
+      const n = numProdutosSis(x.chaves);
+      b.appendChild(el('small', null, x.chaves.length + (x.chaves.length === 1 ? ' modelo 3D' : ' modelos 3D') + (n != null ? ' \u00b7 ' + n + (n === 1 ? ' produto' : ' produtos') : '')));
+      b.onclick = () => { track('c3d_sistema', { carro: atual.id, sistema: x.id }); painelInicial(x.id); }; g.appendChild(b);
+    });
     box.appendChild(g);
-  };
-  SECOES.forEach((sc) => secao(sc[0], sc[1]));
-  secao('Outras partes', Object.keys(ZONAS));
-  const q = atual.brand + ' ' + atual.model;
+  } else {
+    const l = el('div', 'c3d-mods');
+    sx.chaves.forEach((k) => {
+      const Z = ZONAS[k], np = (GRUPO_CHAVES[k] || []).length;
+      const b = el('button'); b.type = 'button'; b.dataset.z = k; const t = el('span'); t.appendChild(el('b', null, Z.nome)); t.appendChild(el('small', null, np ? np + ' peças clicáveis em 3D' : 'Modelo 3D'));
+      b.appendChild(t); const n = CAT ? contagemZona(k) : null; if (n != null) b.appendChild(el('em', n ? 'tem' : '', n ? n + (n === 1 ? ' produto' : ' produtos') : 'sem produtos'));
+      b.onclick = () => escolher(k, true); l.appendChild(b);
+    });
+    box.appendChild(l);
+  }
   $('c3d-ver').hidden = true;
-  const vm = $('c3d-ver-modelo'); vm.hidden = false; vm.href = urlBusca(q); vm.textContent = 'Ver peças do ' + atual.model;
+  const vm = $('c3d-ver-modelo'); vm.hidden = false; vm.href = urlBusca(veic); vm.textContent = 'Ver peças do ' + atual.model;
 }
 
 const RELACIONADAS = {
@@ -1264,13 +1326,26 @@ const GRUPOS = {
 };
 /* Seções da lista de partes */
 const SECOES = [
-  ['Carroceria', ['capo', 'parachoque-d', 'farol', 'parabrisa', 'limpador', 'teto', 'portas', 'retrovisor', 'rodas', 'portamalas', 'lanterna', 'parachoque-t']],
+  ['Carroceria', ['farol', 'lanterna', 'retrovisor', 'rodas', 'portas', 'limpador']],
   ['Motor e arrefecimento', ['motor', 'motor-v6', 'arrefecimento', 'radiador', 'turbo', 'distribuicao', 'bomba-comb', 'escapamento']],
   ['Suspensão, freios e direção', ['suspensao', 'lift', 'freios', 'direcao']],
   ['Transmissão', ['cambio', 'embreagem']],
   ['Elétrica', ['alternador', 'bateria', 'partida']],
   ['Simuladores em corte', ['corte-termostato', 'corte-borboleta', 'corte-solenoide', 'corte-sensor-oleo']]
 ];
+const SIS_META = {
+  'Carroceria': { id: 'carroceria', desc: 'Faróis, lanternas, retrovisores, rodas, portas e limpador.', icone: '<svg viewBox="0 0 24 24"><path d="M3 15l2-5.5A2 2 0 0 1 6.9 8h10.2a2 2 0 0 1 1.9 1.5L21 15M3 15v4h3v-2h12v2h3v-4M3 15h18"/><circle cx="7.5" cy="14.5" r=".8"/><circle cx="16.5" cy="14.5" r=".8"/></svg>' },
+  'Motor e arrefecimento': { id: 'motor', desc: 'Motor, radiador, arrefecimento, turbo, distribuição, combustível e escapamento.', icone: '<svg viewBox="0 0 24 24"><path d="M4 10h2V8h4V6h4v2h3l2 2v6h-2v2H9v-2H4z"/><path d="M8 13h6"/></svg>' },
+  'Suspensão, freios e direção': { id: 'suspensao', desc: 'Suspensão, kit lift, freios e caixa de direção.', icone: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/><path d="M12 4v5.5M12 14.5V20M4 12h5.5M14.5 12H20"/></svg>' },
+  'Transmissão': { id: 'transmissao', desc: 'Câmbio e embreagem.', icone: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg>' },
+  'Elétrica': { id: 'eletrica', desc: 'Alternador, bateria e motor de partida.', icone: '<svg viewBox="0 0 24 24"><path d="M13 3 5 13h6l-1 8 8-10h-6l1-8Z"/></svg>' },
+  'Simuladores em corte': { id: 'cortes', desc: 'Veja por dentro: termostato, borboleta, solenoide e sensor de óleo.', icone: '<svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 18l-5-9V3"/><path d="M7.5 15h9"/></svg>' }
+};
+const SISTEMAS = SECOES.map((sc) => Object.assign({ nome: sc[0], chaves: sc[1] }, SIS_META[sc[0]] || { id: sc[0], desc: '', icone: '' }));
+const sistemaDe = (k) => SISTEMAS.find((sx) => sx.chaves.indexOf(k) >= 0);
+/* partes da carroceria sem modelo 3D: o toque leva ao sistema mais próximo ou avisa */
+const REDIR_CARRO = { capo: 'motor', 'parachoque-d': 'radiador', parabrisa: 'limpador', 'parachoque-t': 'escapamento' };
+let emDiag = false, sistemaAtual = null, buscaAtiva = false;
 /* Diagnóstico por sintoma: leva ao modelo 3D certo e destaca as peças suspeitas */
 const SINTOMAS = [
   { id: 'esquentando', nome: 'Motor esquentando', modelo: 'arrefecimento', suspeitos: ['termostato-arref', 'bomba-agua-arref', 'ventoinha-arref', 'radiador-arref', 'reservatorio-arref', 'mangueira-arref'], texto: "O superaquecimento costuma vir do termostato preso, da bomba d'água, da ventoinha que não liga ou de vazamento no radiador e nas mangueiras." },
@@ -1294,10 +1369,16 @@ Object.keys(GRUPO_CHAVES).forEach((tipo) => {
   lista.forEach((k, i) => { RELACIONADAS[k] = [tipo, lista[(i + 1) % lista.length], lista[(i + 2) % lista.length], lista[(i + 3) % lista.length]]; });
 });
 function relacionadas(z, box) {
-  const lista = RELACIONADAS[z]; if (!lista) return;
-  const w = el('div', 'c3d-rel'); w.appendChild(el('span', null, 'Quem procura ' + ZONAS[z].nome.toLowerCase() + ' também procura'));
-  const c = el('div', 'c3d-rel-c');
-  lista.forEach((k) => { const b = el('button', 'c3d-chip', ZONAS[k].nome); b.type = 'button'; b.onclick = () => escolher(k, true); c.appendChild(b); });
+  const mq = ZONAS[z].maq || z, g = GRUPO_CHAVES[mq];
+  const w = el('div', 'c3d-rel'), c = el('div', 'c3d-rel-c');
+  if (g) {
+    w.appendChild(el('span', null, 'Peças de ' + ZONAS[mq].nome.toLowerCase()));
+    [mq].concat(g).forEach((k) => { const b = el('button', 'c3d-chip' + (k === z ? ' on' : ''), k === mq ? 'Visão geral' : ZONAS[k].nome); b.type = 'button'; b.onclick = () => escolher(k, true); c.appendChild(b); });
+  } else {
+    const lista = RELACIONADAS[z]; if (!lista) return;
+    w.appendChild(el('span', null, 'Quem procura ' + ZONAS[z].nome.toLowerCase() + ' também procura'));
+    lista.forEach((k) => { if (!ZONAS[k] || !ZONAS[k].maq) return; const b = el('button', 'c3d-chip', ZONAS[k].nome); b.type = 'button'; b.onclick = () => escolher(k, true); c.appendChild(b); });
+  }
   w.appendChild(c); box.appendChild(w);
 }
 const cacheOg = {};
@@ -1380,8 +1461,8 @@ async function buscarPlaca() {
 
 async function mostrarPecas(z) {
   const Z = ZONAS[z], meu = ++seq;
-  $('c3d-voltar').hidden = false;
-  $('c3d-ph-tag').textContent = 'Peças para ' + atual.brand + ' ' + atual.model;
+  $('c3d-voltar').hidden = false; rotuloVoltar(rotuloAnterior(z)); mostrarBusca(false);
+  $('c3d-ph-tag').textContent = trilha(z);
   $('c3d-ph-tit').textContent = Z.nome; entradaTitulo();
   $('c3d-ph-sub').textContent = 'Buscando na loja\u2026';
   const box = $('c3d-pc'); box.textContent = '';
@@ -1406,7 +1487,7 @@ async function mostrarPecas(z) {
     $('c3d-ph-sub').textContent = 'Não foi possível carregar a lista.'; track('c3d_busca_erro', { carro: atual.id, parte: z }); return;
   }
   if (!prods.length) {
-    const v = el('div', 'c3d-vazio'); v.appendChild(el('strong', null, 'Nenhuma peça encontrada')); v.appendChild(document.createTextNode('Ainda não há ' + Z.nome.toLowerCase() + ' cadastrado para o ' + atual.model + '. Veja as demais peças do modelo ou fale com a gente.'));
+    const v = el('div', 'c3d-vazio'); v.appendChild(el('strong', null, 'Ainda não temos esta peça')); v.appendChild(document.createTextNode('Não encontramos ' + Z.nome.toLowerCase() + ' para o ' + atual.model + ' na loja. Veja produtos semelhantes ou fale com a gente.'));
     v.appendChild(botaoSemelhantes(z));
     if (WHATSAPP) { const w = el('a', 'c3d-btn c3d-zap', 'Pedir esta peça no WhatsApp'); w.style.marginTop = '14px'; w.target = '_blank'; w.rel = 'noopener'; w.href = 'https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent('Olá! Procuro ' + Z.nome.toLowerCase() + ' para ' + atual.brand + ' ' + atual.model + (ano ? ' ' + ano : '') + '.'); v.appendChild(w); }
     box.appendChild(v); relacionadas(z, box);
@@ -1487,7 +1568,7 @@ function botaoSemelhantes(z) {
 }
 async function mostrarSemelhantes(z) {
   const Z = ZONAS[z], meu = ++seq, box = $('c3d-pc');
-  $('c3d-voltar').hidden = false; $('c3d-ph-tag').textContent = 'Produtos semelhantes'; $('c3d-ph-tit').textContent = Z.nome; entradaTitulo();
+  $('c3d-voltar').hidden = false; mostrarBusca(false); $('c3d-ph-tag').textContent = 'Produtos semelhantes'; $('c3d-ph-tit').textContent = Z.nome; entradaTitulo();
   $('c3d-ph-sub').textContent = 'Buscando produtos parecidos na loja\u2026';
   box.textContent = ''; const esq = el('div', 'c3d-lista'); for (let i = 0; i < 4; i++) esq.appendChild(el('div', 'c3d-esq')); box.appendChild(esq);
   const vistos = new Set(), achados = [];
@@ -1513,9 +1594,18 @@ async function mostrarSemelhantes(z) {
 }
 
 document.querySelectorAll('.c3d-mapa .z').forEach((g) => { g.setAttribute('tabindex', '0'); g.setAttribute('role', 'button'); g.setAttribute('aria-label', ZONAS[g.dataset.z].nome); g.onclick = () => escolher(g.dataset.z, true); g.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); escolher(g.dataset.z, true); } }; });
-function voltarPartes() { seq++; zonaAtual = null; desfazerExplosao(); irGaveta('peek'); sincronizarUrl(null); painelInicial(); mv.cameraOrbit = vista(32, 74, 105); $('c3d-dica').classList.remove('off'); }
-$('c3d-voltar').onclick = voltarPartes;
-document.addEventListener('keydown', (e) => { if (e.key !== 'Escape') return; if (!$('c3d-lb').hidden) { fecharLightbox(); return; } if (!$('c3d-voltar').hidden) voltarPartes(); });
+function voltarPartes(sisId) { seq++; zonaAtual = null; desfazerExplosao(); irGaveta('peek'); sincronizarUrl(null); painelInicial(sisId || null); mv.cameraOrbit = vista(32, 74, 105); $('c3d-dica').classList.remove('off'); }
+function voltarNivel() {
+  const z = zonaAtual;
+  if (!emDiag && z && ZONAS[z]) {
+    const mq = ZONAS[z].maq;
+    if (mq && mq !== z) { escolher(mq, true); return; }
+    const sx = sistemaDe(mq || z); voltarPartes(sx ? sx.id : null); return;
+  }
+  voltarPartes(null);
+}
+$('c3d-voltar').onclick = voltarNivel;
+document.addEventListener('keydown', (e) => { if (e.key !== 'Escape') return; if (!$('c3d-lb').hidden) { fecharLightbox(); return; } if (!$('c3d-voltar').hidden) voltarNivel(); });
 $('c3d-lb').onclick = (e) => { if (e.target === $('c3d-lb') || e.target.id === 'c3d-lb-x') fecharLightbox(); };
 carros.forEach((c) => { const o = document.createElement('option'); o.value = c.brand + ' ' + c.model; $('c3d-bc-lista').appendChild(o); });
 $('c3d-bc-ok').onclick = abrirPorNome; $('c3d-bc').onkeydown = (e) => { if (e.key === 'Enter') abrirPorNome(); };
