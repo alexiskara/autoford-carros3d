@@ -1461,8 +1461,8 @@ async function buscarDestaques() {
   const r = await fetch('/', { credentials: 'same-origin' }); if (!r.ok) return [];
   const buf = await r.arrayBuffer(); let html; try { html = new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch (e) { html = new TextDecoder('windows-1252').decode(buf); }
   const d = new DOMParser().parseFromString(html, 'text/html');
-  const txt = (e) => (e ? e.textContent.replace(/s+/g, ' ').trim() : '');
-  const imgDe = (e) => { const i = e && e.querySelector('img'); return i ? (i.getAttribute('data-src') || i.getAttribute('src') || '') : ''; };
+  const txt = (e) => (e ? e.textContent.replace(/\s+/g, ' ').trim() : '');
+  const imgDe = (e) => { const i = e && e.querySelector('img'); return i ?(i.getAttribute('data-src') || i.getAttribute('src') || '') : ''; };
   return [...d.querySelectorAll('article.isb-card')].slice(0, 12).map((c) => {
     const a = c.querySelector('a.isb-card__name') || c.querySelector('a[href]'); if (!a) return null;
     return { nome: txt(a), url: a.getAttribute('href') || '', img: imgDe(c), preco: txt(c.querySelector('.isb-price__now')), preco_de: txt(c.querySelector('.isb-price s, .isb-price del, .isb-price__old, .isb-price__was')) };
