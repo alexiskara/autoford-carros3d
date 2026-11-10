@@ -361,15 +361,49 @@ if (M && !reduz && matchMedia('(hover:hover)').matches) {
   });
 }
 
+/* ---------- tema global: títulos por palavra, holofote nos cartões, aurora com parallax, risco SVG (Motion + anime.js) ---------- */
+{
+  const CARD_SEL = '.ep-passo,.ep-b,.ep-recs article,.ep-chk article,.ep-pc,.ep-mc,.ep-prod,.ep-conf a,.ep-n,.ep-v,.ep-cmp>div,.ep-faq details';
+  /* holofote que segue o mouse dentro dos cartões */
+  raiz.addEventListener('pointermove', (e) => {
+    const c = e.target.closest && e.target.closest(CARD_SEL); if (!c) return;
+    const r = c.getBoundingClientRect(); c.style.setProperty('--mx', (e.clientX - r.left).toFixed(0) + 'px'); c.style.setProperty('--my', (e.clientY - r.top).toFixed(0) + 'px');
+  }, { passive: true });
+  /* títulos revelados palavra a palavra (preserva <em>) */
+  const dividir = (el) => {
+    if (el.classList.contains('dividido')) return;
+    el.setAttribute('aria-label', el.textContent.replace(/\s+/g, ' ').trim());
+    const anda = (no) => [...no.childNodes].forEach((n) => {
+      if (n.nodeType === 3) {
+        const fr = document.createDocumentFragment();
+        n.textContent.split(/(\s+)/).forEach((p) => { if (!p) return; if (/^\s+$/.test(p)) { fr.appendChild(document.createTextNode(' ')); return; } const w = document.createElement('span'), s = document.createElement('span'); w.className = 'hv-w'; w.setAttribute('aria-hidden', 'true'); s.textContent = p; w.appendChild(s); fr.appendChild(w); });
+        n.replaceWith(fr);
+      } else if (n.nodeType === 1 && n.tagName !== 'BR') anda(n);
+    });
+    anda(el); el.classList.add('dividido');
+  };
+  const titulos = $$('.ep-cab h2, .ep-cta h2, #visualizador .c3d h2', raiz);
+  titulos.forEach((t) => { t.removeAttribute('data-rv'); dividir(t); });
+  /* risco SVG sob o cabeçalho de cada seção */
+  const NS = 'http://www.w3.org/2000/svg';
+  const riscos = $$('.ep-cab', raiz).map((cab) => { const sv = document.createElementNS(NS, 'svg'); sv.setAttribute('class', 'ep-risco'); sv.setAttribute('viewBox', '0 0 400 12'); sv.setAttribute('aria-hidden', 'true'); const p = document.createElementNS(NS, 'path'); p.setAttribute('pathLength', '1'); p.setAttribute('d', 'M2 6H150L162 2H398'); sv.appendChild(p); cab.appendChild(sv); return p; });
+  if (M && !reduz) {
+    raiz.classList.add('ep-js');
+    M.inView(titulos, (el) => { el.classList.add('ok'); M.animate($$('.hv-w > span', el), { transform: ['translateY(112%) rotate(5deg)', 'translateY(0%) rotate(0deg)'] }, { duration: .95, ease: [0.16, 1, 0.3, 1], delay: M.stagger(.055) }); }, { margin: '0px 0px -10% 0px' });
+    if (A) riscos.forEach((p) => { p.style.strokeDashoffset = '1'; M.inView(p.ownerSVGElement, () => { try { A.animate(p, { strokeDashoffset: [1, 0], duration: 1500, ease: 'inOutQuart' }); } catch (e) { p.style.strokeDashoffset = '0'; } }, { margin: '0px 0px -5% 0px' }); });
+    /* aurora de cada seção desliza com a rolagem */
+    if (M.scroll) $$('.ep-sec', raiz).forEach((s) => { if (s.classList.contains('ep-hero')) return; try { M.scroll((p) => s.style.setProperty('--par', ((p - .5) * -110).toFixed(1) + 'px'), { target: s, offset: ['start end', 'end start'] }); } catch (e) {} });
+  }
+}
+
 /* ---------- revelar ao rolar (Motion) ---------- */
 if (M && !reduz) {
-  raiz.classList.add('ep-js');
   const itens = $$('[data-rv]', raiz);
-  itens.forEach((el) => { el.style.transform = 'translateY(30px)'; el.style.filter = 'blur(6px)'; });
+  itens.forEach((el) => { el.style.transform = 'translateY(42px) scale(.96)'; el.style.filter = 'blur(8px)'; });
   const vistos = new Map();
   M.inView(itens, (el) => {
     const irmaos = [...el.parentElement.children].filter((x) => x.hasAttribute('data-rv')), i = Math.max(0, irmaos.indexOf(el));
-    M.animate(el, { opacity: 1, transform: 'translateY(0px)', filter: 'blur(0px)' }, { duration: 0.8, delay: Math.min(i, 8) * 0.07, ease: [0.22, 1, 0.36, 1] });
+    M.animate(el, { opacity: 1, transform: 'translateY(0px) scale(1)', filter: 'blur(0px)' }, { duration: 0.9, delay: Math.min(i, 8) * 0.08, ease: [0.16, 1, 0.3, 1] });
   }, { margin: '0px 0px -8% 0px' });
   /* trilha entre os passos */
   const trilha = $('.ep-linha'); if (trilha) { trilha.style.clipPath = 'inset(0 100% 0 0)'; M.inView(trilha, () => { M.animate(trilha, { clipPath: ['inset(0 100% 0 0)', 'inset(0 0% 0 0)'] }, { duration: 1.6, ease: [0.22, 1, 0.36, 1] }); }); }
