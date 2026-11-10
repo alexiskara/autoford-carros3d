@@ -1682,8 +1682,7 @@ function pinosCarro() {
   });
   const palco = $('c3d-palco'); palco.classList.add('c3d-pinos-lb'); clearTimeout(pinosCarro.t); pinosCarro.t = setTimeout(() => palco.classList.remove('c3d-pinos-lb'), 7000);
 }
-mv.addEventListener('load', pinosCarro);
-$('c3d-palco').addEventListener('pointerdown', () => $('c3d-palco').classList.remove('c3d-pinos-lb'));
+/* pinos sobre o carro desativados a pedido: o carro fica limpo e o toque continua funcionando; os rótulos ficam só nos 3D das peças */
 $('c3d-ar').onclick = abrirAR;
 $('c3d-rotulos').onclick = () => { rotLigados = !rotLigados; guardar('c3d_rot', rotLigados ? '1' : '0'); if (motor && motor.rotulos) motor.rotulos(rotLigados); atualizarBotoes(); };
 $('c3d-qual').onclick = () => { qualAlta = !qualAlta; guardar('c3d_qual', qualAlta ? '1' : '0'); if (motor && motor.qualidade) motor.qualidade(qualAlta); atualizarBotoes(); avisar(qualAlta ? 'Qualidade realista ligada' : 'Qualidade leve (mais rápida)'); };
