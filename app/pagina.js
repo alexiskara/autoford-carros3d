@@ -258,6 +258,7 @@ function abrir(c) {
   if (trocouMarca) montarModelos(c.brand);
   marcarAtivos();
   $('c3d-marca-nome').textContent = c.brand; $('c3d-modelo-nome').textContent = c.model;
+  document.querySelectorAll('.c3d-pino').forEach((n) => n.remove());
   $('c3d-palco').classList.toggle('c3d-sem-carro', !c.file);
   if (c.file) { $('c3d-carga').classList.remove('off'); $('c3d-barra').style.width = '0'; } else $('c3d-carga').classList.add('off');
   $('c3d-carga-txt').textContent = 'Carregando ' + c.brand + ' ' + c.model + '\u2026';
@@ -1082,6 +1083,14 @@ function marcarZona(z) {
 }
 
 let motor = null, motorTipo = null, motorSeq = 0, motorTimer = 0, motor360 = false, ver360 = false, selMotor = null, ctlTimer = 0;
+/* nomes dos rótulos sobre o modelo 3D (a peça principal de cada modelo tem um nome mais claro) */
+const ROTULO_PRINCIPAL = { motor: 'Bloco do motor', 'motor-v6': 'Bloco do motor', arrefecimento: 'Bloco do motor', radiador: 'Radiador', cambio: 'Carcaça do câmbio', suspensao: 'Suspensão', lift: 'Chassi', freios: 'Disco de freio', escapamento: 'Escapamento', embreagem: 'Embreagem', turbo: 'Turbo', alternador: 'Alternador', bateria: 'Bateria', partida: 'Carcaça', 'bomba-comb': 'Bomba', direcao: 'Caixa de direção', limpador: 'Mecanismo', distribuicao: 'Correia dentada', farol: 'Carcaça do farol', lanterna: 'Carcaça', retrovisor: 'Carcaça', rodas: 'Roda', portas: 'Painel da porta', 'corte-termostato': 'Carcaça', 'corte-borboleta': 'Corpo', 'corte-solenoide': 'Corpo', 'corte-sensor-oleo': 'Corpo' };
+function rotulosModelo(tipo) {
+  const mapa = {}, nome = (k) => (k === tipo ? (ROTULO_PRINCIPAL[k] || ZONAS[k].nome) : ZONAS[k].nome);
+  [tipo].concat(GRUPO_CHAVES[tipo] || []).forEach((k) => { if (!ZONAS[k]) return; mapa[k] = { nome: nome(k), n: CAT ? contagemZona(k) : null }; });
+  return mapa;
+}
+let rotLigados = (function () { const q = ler('c3d_rot'); if (q) return q === '1'; return !matchMedia('(pointer: coarse)').matches; })();
 /* Modelos reais (.glb) por peça: { 'farol': 'https://.../farol.glb' }. Veja LEIA-ME-MODELOS-REAIS.md */
 const MODELOS_REAIS = {};
 /* Giro 360° com fotos por peça: { 'farol': { base: 'https://.../farol/', n: 36, ext: 'jpg', pad: 2, inicio: 1 } } */
@@ -1115,7 +1124,8 @@ function desenharControles() {
 }
 function atualizarBotoes() {
   const t = (id, off) => { const b = $(id); if (b) b.classList.toggle('c3d-off', !!off); };
-  t('c3d-explodir', !motor || motor360); t('c3d-qual', !motor || motor360 || !motor.qualidade); t('c3d-ar', !motor || motor360 || !motor.exportarGLB); t('c3d-360', !motorTipo || !GIROS_360[motorTipo]);
+  t('c3d-explodir', !motor || motor360); t('c3d-qual', !motor || motor360 || !motor.qualidade); t('c3d-ar', !motor || motor360 || !motor.exportarGLB); t('c3d-360', !motorTipo || !GIROS_360[motorTipo]); t('c3d-rotulos', !motor || motor360 || !motor.rotulos);
+  const rb = $('c3d-rotulos'); if (rb) rb.setAttribute('aria-pressed', rotLigados ? 'true' : 'false');
   const q = $('c3d-qual'); if (q) q.setAttribute('aria-pressed', qualAlta ? 'true' : 'false');
   const b3 = $('c3d-360'); if (b3) b3.setAttribute('aria-pressed', motor360 ? 'true' : 'false');
 }
@@ -1146,7 +1156,7 @@ function mostrarMotor(tipo, forcar) {
     if (motor) { motor.destruir(); motor = null; motorTipo = null; }
     desenharControles(); atualizarBotoes();
     box.classList.remove('c3d-troca'); box.textContent = ''; box.appendChild(el('div', 'c3d-motor-msg', 'Carregando modelo 3D\u2026'));
-    const opc = { onParte: onParte, qualidade: qualAlta ? 'alta' : 'leve' };
+    const opc = { onParte: onParte, qualidade: qualAlta ? 'alta' : 'leve', rotulos: rotulosModelo(tipo), rotulosLigados: rotLigados };
     import(tipo === 'motor' ? MOTOR_JS : MAQUINAS_JS).then((mod) => {
       if (meu !== motorSeq || !palco.classList.contains('c3d-modo-motor')) return null;
       box.textContent = '';
@@ -1619,6 +1629,7 @@ if (PLACA_API) { $('c3d-placa').hidden = false; $('c3d-placa-ok').onclick = busc
     if ($(id)) return;
     const b = el('button', 'c3d-ico c3d-mot-ctl c3d-off'); b.id = id; b.type = 'button'; if (pressed) b.setAttribute('aria-pressed', 'true'); b.title = titulo; b.setAttribute('aria-label', titulo); b.innerHTML = svg; f.insertBefore(b, f.firstChild);
   };
+  botao('c3d-rotulos', 'Mostrar ou esconder os nomes das peças', '<svg viewBox="0 0 24 24"><path d="M4 7h9M4 12h6M4 17h9"/><circle cx="17" cy="7" r="2"/><circle cx="14" cy="12" r="2"/><circle cx="17" cy="17" r="2"/></svg>', true);
   botao('c3d-360', 'Ver fotos 360° da peça real', '<svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="9" ry="4"/><path d="M12 3a4 9 0 0 1 0 18M12 3a4 9 0 0 0 0 18"/></svg>', false);
   botao('c3d-ar', 'Ver em realidade aumentada (tamanho real)', '<svg viewBox="0 0 24 24"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9L12 3Z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/></svg>', false);
   botao('c3d-qual', 'Qualidade realista (sombras e reflexos)', '<svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/><path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16Z"/></svg>', true);
@@ -1632,7 +1643,49 @@ if (PLACA_API) { $('c3d-placa').hidden = false; $('c3d-placa-ok').onclick = busc
 })();
 $('c3d-mapa-btn').onclick = () => { const pop = $('c3d-mapa-pop'); if (pop && pop.classList.contains('on')) fecharMapa(); else abrirMapa(); };
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { const pop = $('c3d-mapa-pop'); if (pop && pop.classList.contains('on')) { e.stopImmediatePropagation(); fecharMapa(); } } }, true);
+/* cabeçalho: texto atual e, com um único veículo, sem seletores desnecessários */
+function refinarCabecalho() {
+  const sec = $('c3d'); if (!sec) return;
+  const sub = sec.querySelector('.c3d-sub'); if (sub) sub.textContent = 'Escolha o seu veículo, toque no carro ou escolha o sistema (motor, suspensão, freios, elétrica) e veja as peças da loja para aquele modelo.';
+  const ps = sec.querySelector('.c3d-passos'); if (ps) ps.innerHTML = '<li><b>1</b>Escolha o veículo</li><li><b>2</b>Toque no carro ou escolha o sistema</li><li><b>3</b>Veja as peças</li>';
+  sec.classList.toggle('c3d-uni', carros.length <= 1);
+}
+refinarCabecalho();
+/* pinos com nome sobre o carro: mostram onde tocar */
+const PINOS_CARRO = [
+  { k: 'motor', nome: 'Motor', a: 0.3, b: 0, h: 0.4, n: 'up' },
+  { k: 'farol', nome: 'Faróis', a: 0.47, b: 0.3, h: 0.31, lados: 1, n: 'f' },
+  { k: 'rodas', nome: 'Rodas', a: 0.335, b: 0.43, h: 0.17, lados: 1, n: 'l' },
+  { k: 'retrovisor', nome: 'Retrovisores', a: 0.235, b: 0.5, h: 0.53, lados: 1, n: 'l' },
+  { k: 'lanterna', nome: 'Lanternas', a: -0.47, b: 0.3, h: 0.42, lados: 1, n: 't' }
+];
+function eixosCarro(c) { return { '+z': [[0, 0, 1], [1, 0, 0]], '-z': [[0, 0, -1], [-1, 0, 0]], '+x': [[1, 0, 0], [0, 0, -1]], '-x': [[-1, 0, 0], [0, 0, 1]] }[c.frente || '+z'] || [[0, 0, 1], [1, 0, 0]]; }
+function pinosCarro() {
+  document.querySelectorAll('.c3d-pino').forEach((n) => n.remove());
+  if (!atual || !atual.file || !mv.model) return;
+  let d, ct; try { d = mv.getDimensions(); ct = mv.getBoundingBoxCenter(); } catch (er) { return; }
+  const ax = eixosCarro(atual), f = ax[0], l = ax[1];
+  const L = Math.abs(f[0] * d.x + f[2] * d.z), W = Math.abs(l[0] * d.x + l[2] * d.z), Hh = d.y;
+  PINOS_CARRO.forEach((pn) => {
+    (pn.lados ? [1, -1] : [0]).forEach((sg, i) => {
+      const b = pn.lados ? pn.b * sg : pn.b;
+      const pos = [ct.x + f[0] * L * pn.a + l[0] * W * b, (ct.y - Hh / 2) + Hh * pn.h, ct.z + f[2] * L * pn.a + l[2] * W * b];
+      const nr = pn.n === 'up' ? [0, 1, 0] : pn.n === 'f' ? f : pn.n === 't' ? [-f[0], 0, -f[2]] : [l[0] * sg, 0, l[2] * sg];
+      const bt = document.createElement('button'); bt.type = 'button'; bt.className = 'c3d-pino'; bt.slot = 'hotspot-pino-' + pn.k + '-' + i;
+      bt.setAttribute('data-position', pos.map((v) => v.toFixed(3)).join(' ')); bt.setAttribute('data-normal', nr.map((v) => v.toFixed(3)).join(' ')); bt.setAttribute('data-visibility-attribute', 'visible');
+      bt.setAttribute('aria-label', 'Ver peças: ' + pn.nome);
+      bt.innerHTML = '<span class="dot"></span><span class="lb">' + pn.nome + '</span>';
+      const n = CAT ? contagemZona(pn.k) : null; if (n > 0) { const bi = document.createElement('i'); bi.textContent = n; bt.querySelector('.lb').appendChild(bi); }
+      bt.addEventListener('click', (e) => { e.stopPropagation(); escolher(pn.k, false); });
+      mv.appendChild(bt);
+    });
+  });
+  const palco = $('c3d-palco'); palco.classList.add('c3d-pinos-lb'); clearTimeout(pinosCarro.t); pinosCarro.t = setTimeout(() => palco.classList.remove('c3d-pinos-lb'), 7000);
+}
+mv.addEventListener('load', pinosCarro);
+$('c3d-palco').addEventListener('pointerdown', () => $('c3d-palco').classList.remove('c3d-pinos-lb'));
 $('c3d-ar').onclick = abrirAR;
+$('c3d-rotulos').onclick = () => { rotLigados = !rotLigados; guardar('c3d_rot', rotLigados ? '1' : '0'); if (motor && motor.rotulos) motor.rotulos(rotLigados); atualizarBotoes(); };
 $('c3d-qual').onclick = () => { qualAlta = !qualAlta; guardar('c3d_qual', qualAlta ? '1' : '0'); if (motor && motor.qualidade) motor.qualidade(qualAlta); atualizarBotoes(); avisar(qualAlta ? 'Qualidade realista ligada' : 'Qualidade leve (mais rápida)'); };
 $('c3d-360').onclick = () => { ver360 = !ver360; if (motorTipo) mostrarMotor(motorTipo, true); };
 if ($('c3d-explodir')) $('c3d-explodir').onclick = () => setExplodir(!(motor && motor.estaExpandido()));
