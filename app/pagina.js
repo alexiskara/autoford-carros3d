@@ -19,16 +19,26 @@ const ZONAS = {
   'suspensao': { nome: 'Suspensão', termo: 'suspensão', cam: [90, 85, 65] },
   'freios': { nome: 'Freios', termo: 'freio', cam: [90, 85, 65] },
   'escapamento': { nome: 'Escapamento', termo: 'escapamento', cam: [180, 85, 75] },
-  /* subpartes do motor: aparecem só como atalhos dentro de "Motor" */
-  'pistao': { nome: 'Pistão e anéis', termo: 'pistão', cam: [0, 52, 70], oculta: 1 },
-  'vela': { nome: 'Velas e bobinas', termo: 'vela', cam: [0, 52, 70], oculta: 1 },
-  'correia': { nome: 'Correia dentada', termo: 'correia dentada', cam: [0, 52, 70], oculta: 1 },
+  /* peças do motor: só aparecem dentro do motor 3D (clicáveis nele) e nos atalhos de "Motor" */
+  'cabecote': { nome: 'Cabeçote', termo: 'cabeçote', cam: [0, 52, 70], oculta: 1 },
+  'valvulas': { nome: 'Válvulas', termo: 'válvula', cam: [0, 52, 70], oculta: 1 },
+  'comando': { nome: 'Comando de válvulas', termo: 'comando de válvulas', cam: [0, 52, 70], oculta: 1 },
+  'pistao': { nome: 'Pistão e bielas', termo: 'pistão', cam: [0, 52, 70], oculta: 1 },
+  'virabrequim': { nome: 'Virabrequim', termo: 'virabrequim', cam: [0, 52, 70], oculta: 1 },
+  'volante': { nome: 'Volante do motor', termo: 'volante', cam: [0, 52, 70], oculta: 1 },
+  'correia': { nome: 'Correia e polias', termo: 'correia dentada', cam: [0, 52, 70], oculta: 1 },
+  'vela': { nome: 'Velas', termo: 'vela', cam: [0, 52, 70], oculta: 1 },
+  'coletor': { nome: 'Coletor de escape', termo: 'coletor escape', cam: [0, 52, 70], oculta: 1 },
+  'carter': { nome: 'Cárter', termo: 'carter', cam: [0, 52, 70], oculta: 1 },
+  'bloco': { nome: 'Bloco do motor', termo: 'bloco motor', cam: [0, 52, 70], oculta: 1 },
   'junta': { nome: 'Junta do cabeçote', termo: 'junta cabeçote', cam: [0, 52, 70], oculta: 1 },
   'bomba-agua': { nome: "Bomba d'água", termo: "bomba d'agua", cam: [0, 52, 70], oculta: 1 },
   'filtro-oleo': { nome: 'Filtro de óleo', termo: 'filtro de oleo', cam: [0, 52, 70], oculta: 1 }
 };
-/* Simulador 3D do motor (teardown). window.C3D_MOTOR substitui o endereço em testes locais. */
-const MOTOR_URL = (typeof window.C3D_MOTOR === 'string') ? window.C3D_MOTOR : 'https://alexiskara.github.io/autoford-carros3d/motor/';
+/* Motor 3D (teardown), carregado só quando alguém escolhe "Motor". window.C3D_MOTOR_JS substitui o endereço em testes locais. */
+const MOTOR_JS = (typeof window.C3D_MOTOR_JS === 'string') ? window.C3D_MOTOR_JS : new URL('./motor3d.js', import.meta.url).href;
+/* Carros exibidos no seletor (ids do cars.json). Vazio = mostra todos. */
+const CARROS_EXEMPLO = ['chevrolet-onix'];
 const CORES = [['Original', null], ['Branco', [.9, .9, .88]], ['Prata', [.56, .59, .63]], ['Preto', [.02, .02, .025]], ['Vermelho', [.62, .0, .03]], ['Azul', [.02, .12, .52]], ['Verde', [.0, .26, .11]], ['Amarelo', [.96, .66, .0]]];
 const TETA = { '+z': 0, '-z': 180, '+x': 90, '-x': -90 };
 const PLACA_API = '';
@@ -135,7 +145,8 @@ async function buscar(q) {
 
 /* Catálogo */
 const cat = await (await fetch(BASE + '/cars.json')).json();
-carros = cat.cars;
+carros = CARROS_EXEMPLO.length ? cat.cars.filter((c) => CARROS_EXEMPLO.includes(c.id)) : cat.cars;
+if (!carros.length) carros = cat.cars;
 const marcas = [...new Set(carros.map((c) => c.brand))];
 
 function montarMarcas() {
@@ -890,14 +901,42 @@ function marcarZona(z) {
   document.querySelectorAll('.c3d-zonas button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.z === z));
 }
 
+let motor = null, motorCarregando = null;
+function sincronizarMotor() { if (motor) motor.selecionar(zonaAtual && zonaAtual !== 'motor' ? zonaAtual : null); }
+function setExplodir(on) { if (motor) motor.explodir(on); $('c3d-explodir').setAttribute('aria-pressed', on ? 'true' : 'false'); }
+function mostrarMotor() {
+  const palco = $('c3d-palco'), box = $('c3d-motor3d');
+  palco.classList.add('c3d-modo-motor'); box.hidden = false;
+  if (motor) { sincronizarMotor(); return; }
+  if (motorCarregando) return;
+  box.textContent = ''; box.appendChild(el('div', 'c3d-motor-msg', 'Carregando motor 3D\u2026'));
+  motorCarregando = import(MOTOR_JS).then((mod) => {
+    motorCarregando = null;
+    if (!palco.classList.contains('c3d-modo-motor')) return;
+    box.textContent = '';
+    motor = mod.montarMotor(box, { onParte: (k) => { if (ZONAS[k]) escolher(k, false); } });
+    box.appendChild(el('div', 'c3d-motor-dica', 'Arraste para girar \u00b7 clique em uma peça'));
+    setExplodir(true); sincronizarMotor();
+  }).catch(() => {
+    motorCarregando = null; box.textContent = '';
+    box.appendChild(el('div', 'c3d-motor-msg', 'Não foi possível carregar o motor 3D. Use a lista de peças ao lado.'));
+    track('c3d_motor_erro');
+  });
+}
+function esconderMotor() {
+  $('c3d-palco').classList.remove('c3d-modo-motor'); $('c3d-motor3d').hidden = true;
+  if (motor) { motor.destruir(); motor = null; }
+}
 function escolher(z, mover) {
   zonaAtual = z; marcarZona(z); $('c3d-dica').classList.add('off'); sincronizarUrl(z); track('c3d_parte', { carro: atual.id, parte: z, origem: mover ? 'lista' : 'clique3d' });
   const Z = ZONAS[z];
-  if (mover || EXPLODE[z]) mv.querySelector('.c3d-pin').hidden = true; focarZona(z); irGaveta('meio');
+  if (z === 'motor' || Z.oculta) mostrarMotor(); else esconderMotor();
+  if (mover || EXPL[z]) mv.querySelector('.c3d-pin').hidden = true; focarZona(z); irGaveta('meio');
   mostrarPecas(z);
 }
 
 function painelInicial() {
+  esconderMotor();
   marcarZona(null); $('c3d-voltar').hidden = true; mv.querySelector('.c3d-pin').hidden = true;
   $('c3d-ph-tag').textContent = 'Peças compatíveis';
   $('c3d-ph-tit').textContent = atual.brand + ' ' + atual.model; entradaTitulo();
@@ -916,10 +955,12 @@ const RELACIONADAS = {
   'parabrisa': ['teto', 'retrovisor', 'capo'], 'teto': ['parabrisa', 'portas', 'portamalas'], 'portas': ['retrovisor', 'rodas', 'teto'],
   'retrovisor': ['portas', 'parabrisa', 'farol'], 'rodas': ['portas', 'parachoque-d', 'parachoque-t'], 'portamalas': ['lanterna', 'parachoque-t', 'teto'],
   'lanterna': ['portamalas', 'parachoque-t', 'farol'], 'parachoque-t': ['lanterna', 'portamalas', 'rodas'],
-  'motor': ['pistao', 'vela', 'correia', 'junta', 'bomba-agua', 'filtro-oleo'], 'radiador': ['motor', 'farol', 'capo'], 'cambio': ['motor', 'suspensao', 'freios'],
-  'suspensao': ['freios', 'rodas', 'cambio'], 'freios': ['suspensao', 'rodas', 'cambio'], 'escapamento': ['motor', 'parachoque-t', 'suspensao'],
-  'pistao': ['motor', 'junta', 'vela'], 'vela': ['motor', 'pistao', 'filtro-oleo'], 'correia': ['motor', 'bomba-agua', 'junta'], 'junta': ['motor', 'pistao', 'correia'], 'bomba-agua': ['motor', 'correia', 'radiador'], 'filtro-oleo': ['motor', 'vela', 'pistao']
+  'radiador': ['motor', 'farol', 'capo'], 'cambio': ['motor', 'suspensao', 'freios'],
+  'suspensao': ['freios', 'rodas', 'cambio'], 'freios': ['suspensao', 'rodas', 'cambio'], 'escapamento': ['motor', 'parachoque-t', 'suspensao']
 };
+const PECAS_MOTOR = ['cabecote', 'valvulas', 'comando', 'pistao', 'virabrequim', 'volante', 'correia', 'vela', 'coletor', 'carter', 'junta', 'bomba-agua', 'filtro-oleo'];
+RELACIONADAS.motor = PECAS_MOTOR;
+PECAS_MOTOR.forEach((k, i) => { RELACIONADAS[k] = ['motor', PECAS_MOTOR[(i + 1) % PECAS_MOTOR.length], PECAS_MOTOR[(i + 2) % PECAS_MOTOR.length], PECAS_MOTOR[(i + 3) % PECAS_MOTOR.length]]; });
 function relacionadas(z, box) {
   const lista = RELACIONADAS[z]; if (!lista) return;
   const w = el('div', 'c3d-rel'); w.appendChild(el('span', null, 'Quem procura ' + ZONAS[z].nome.toLowerCase() + ' também procura'));
@@ -1005,19 +1046,13 @@ async function buscarPlaca() {
   } catch (e) { msg.textContent = 'Não foi possível consultar a placa agora.'; }
 }
 
-function simuladorMotor(box, z) {
-  if (!MOTOR_URL || (z !== 'motor' && !(ZONAS[z] && ZONAS[z].oculta))) return;
-  const w = el('div', 'c3d-motor'); w.style.cssText = 'margin:0 0 14px;border-radius:12px;overflow:hidden;background:#0b0d10;aspect-ratio:16/10;max-height:340px';
-  const f = document.createElement('iframe'); f.src = MOTOR_URL; f.title = 'Simulador 3D do motor'; f.loading = 'lazy'; f.allow = 'fullscreen'; f.style.cssText = 'width:100%;height:100%;border:0;display:block';
-  w.appendChild(f); box.appendChild(w);
-}
 async function mostrarPecas(z) {
   const Z = ZONAS[z], meu = ++seq;
   $('c3d-voltar').hidden = false;
   $('c3d-ph-tag').textContent = 'Peças para ' + atual.brand + ' ' + atual.model;
   $('c3d-ph-tit').textContent = Z.nome; entradaTitulo();
   $('c3d-ph-sub').textContent = 'Buscando na loja\u2026';
-  const box = $('c3d-pc'); box.textContent = ''; simuladorMotor(box, z);
+  const box = $('c3d-pc'); box.textContent = '';
   const lista = el('div', 'c3d-lista'); for (let i = 0; i < 4; i++) lista.appendChild(el('div', 'c3d-esq')); box.appendChild(lista);
   const ts = semAcento(Z.termo), mo = semAcento(atual.model), ms = semHifen(mo), br = semAcento(atual.brand);
   const cand = [[ts + ' ' + ms, 'modelo'], [ts + ' ' + mo, 'modelo'], [ts + ' ' + br + ' ' + mo, 'modelo'], [ts + ' ' + br, 'marca'], [ts, 'geral']];
@@ -1030,7 +1065,7 @@ async function mostrarPecas(z) {
     for (let i = 0; i < qs.length; i++) { prods = await buscar(qs[i][0]); if (meu !== seq) return; if (prods.length) { tipo = qs[i][1]; break; } }
   } catch (e) { falhou = true; }
   if (meu !== seq) return;
-  box.textContent = ''; simuladorMotor(box, z);
+  box.textContent = '';
   if (falhou) {
     const v = el('div', 'c3d-vazio'); v.appendChild(el('strong', null, 'Busca indisponível no momento')); v.appendChild(document.createTextNode('Use o botão abaixo para ver as peças direto na loja.')); box.appendChild(v);
     $('c3d-ph-sub').textContent = 'Não foi possível carregar a lista.'; track('c3d_busca_erro', { carro: atual.id, parte: z }); return;
@@ -1084,6 +1119,7 @@ $('c3d-lb').onclick = (e) => { if (e.target === $('c3d-lb') || e.target.id === '
 carros.forEach((c) => { const o = document.createElement('option'); o.value = c.brand + ' ' + c.model; $('c3d-bc-lista').appendChild(o); });
 $('c3d-bc-ok').onclick = abrirPorNome; $('c3d-bc').onkeydown = (e) => { if (e.key === 'Enter') abrirPorNome(); };
 if (PLACA_API) { $('c3d-placa').hidden = false; $('c3d-placa-ok').onclick = buscarPlaca; $('c3d-placa-in').onkeydown = (e) => { if (e.key === 'Enter') buscarPlaca(); }; }
+$('c3d-explodir').onclick = () => setExplodir(!(motor && motor.estaExpandido()));
 $('c3d-gira').onclick = () => { const on = mv.hasAttribute('auto-rotate'); if (on) mv.removeAttribute('auto-rotate'); else { if (explo.ativa) desfazerExplosao(); mv.setAttribute('auto-rotate', ''); } $('c3d-gira').setAttribute('aria-pressed', !on); };
 $('c3d-reset').onclick = () => { mv.cameraOrbit = vista(32, 74, 105); mv.querySelector('.c3d-pin').hidden = true; };
 

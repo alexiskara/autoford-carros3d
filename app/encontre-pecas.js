@@ -42,7 +42,10 @@ const norm = (t) => semAcento(t).toLowerCase().replace(/[^a-z0-9]/g, '');
 
 /* ---------- dados ---------- */
 let carros = [];
+/* Carros exibidos (ids do cars.json). Vazio = mostra todos. */
+const CARROS_EXEMPLO = ['chevrolet-onix'];
 try { carros = (await (await fetch(BASE + '/cars.json')).json()).cars || []; } catch (e) { carros = []; }
+if (CARROS_EXEMPLO.length) { const f = carros.filter((c) => CARROS_EXEMPLO.includes(c.id)); if (f.length) carros = f; }
 const nomeCarro = (c) => c.brand + ' ' + c.model;
 const TIPO = { hatch: 'Hatch', suv: 'SUV', pickup: 'Picape' };
 
