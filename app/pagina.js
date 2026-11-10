@@ -218,7 +218,9 @@ function mostrarGaragem() {
 }
 
 function montarCores() {
-  const box = $('c3d-cores'); box.textContent = ''; box.appendChild(el('i', null, 'Cor'));
+  /* seletor de cor removido a pedido: o carro mantém a cor original */
+  const box = $('c3d-cores'); box.textContent = ''; box.hidden = true; return;
+  box.appendChild(el('i', null, 'Cor'));
   const tem = atual.paint && atual.paint.materials && atual.paint.materials.length;
   box.hidden = !tem; if (!tem) return;
   CORES.forEach(([nome, rgb]) => {
