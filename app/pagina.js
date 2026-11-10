@@ -1455,6 +1455,19 @@ function montarItens(ul, prods, z, tipo) {
     ul.appendChild(li);
   });
 }
+/* produtos em destaque da página inicial (último recurso dos semelhantes; só plataforma iSET) */
+async function buscarDestaques() {
+  if (CFG.plataforma !== 'iset') return [];
+  const r = await fetch('/', { credentials: 'same-origin' }); if (!r.ok) return [];
+  const buf = await r.arrayBuffer(); let html; try { html = new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch (e) { html = new TextDecoder('windows-1252').decode(buf); }
+  const d = new DOMParser().parseFromString(html, 'text/html');
+  const txt = (e) => (e ? e.textContent.replace(/s+/g, ' ').trim() : '');
+  const imgDe = (e) => { const i = e && e.querySelector('img'); return i ? (i.getAttribute('data-src') || i.getAttribute('src') || '') : ''; };
+  return [...d.querySelectorAll('article.isb-card')].slice(0, 12).map((c) => {
+    const a = c.querySelector('a.isb-card__name') || c.querySelector('a[href]'); if (!a) return null;
+    return { nome: txt(a), url: a.getAttribute('href') || '', img: imgDe(c), preco: txt(c.querySelector('.isb-price__now')), preco_de: txt(c.querySelector('.isb-price s, .isb-price del, .isb-price__old, .isb-price__was')) };
+  }).filter(Boolean);
+}
 /* ===== Produtos semelhantes: amplia a busca (peças irmãs, sistema e modelo) quando não há o produto exato ===== */
 function termosSemelhantes(z) {
   const Z = ZONAS[z], mq = Z.maq && ZONAS[Z.maq], termos = [];
@@ -1463,7 +1476,7 @@ function termosSemelhantes(z) {
   semAcento(Z.termo).split(/\s+/).filter((w) => w.length > 3).forEach(add);
   (RELACIONADAS[z] || []).forEach((k) => { if (ZONAS[k]) add(ZONAS[k].termo); });
   if (mq) { add(mq.termo); add(mq.nome); }
-  add(atual.brand + ' ' + atual.model);
+  add(atual.brand + ' ' + atual.model); add(atual.model); add(atual.brand);
   return termos;
 }
 function botaoSemelhantes(z) {
@@ -1482,12 +1495,14 @@ async function mostrarSemelhantes(z) {
   if (CAT) [z].concat(RELACIONADAS[z] || [], Z.maq ? [Z.maq] : []).forEach((k) => junta(produtosDaZona(k)));
   const termos = termosSemelhantes(z);
   for (let i = 0; i < termos.length && achados.length < 12; i++) { try { junta(await buscar(termos[i])); } catch (e) {} if (meu !== seq) return; }
+  let destaques = false;
+  if (!achados.length) { try { junta(await buscarDestaques()); destaques = achados.length > 0; } catch (e) {} }
   if (meu !== seq) return;
   box.textContent = '';
   track('c3d_semelhantes', { carro: atual.id, parte: z, quantidade: achados.length });
   if (achados.length) {
     const ul = el('ul', 'c3d-lista'); montarItens(ul, achados.slice(0, 12), z, 'semelhante'); box.appendChild(ul); entradaLista(ul);
-    $('c3d-ph-sub').textContent = achados.length + (achados.length > 1 ? ' produtos semelhantes' : ' produto semelhante') + '. Podem não servir no ' + atual.model + ': confira a compatibilidade.';
+    $('c3d-ph-sub').textContent = destaques ? 'Ainda não há peças parecidas cadastradas. Mostrando outros produtos da loja (teste): podem não servir no ' + atual.model + '.' : achados.length + (achados.length > 1 ? ' produtos semelhantes' : ' produto semelhante') + '. Podem não servir no ' + atual.model + ': confira a compatibilidade.';
   } else {
     const v = el('div', 'c3d-vazio'); v.appendChild(el('strong', null, 'Nenhum produto semelhante encontrado')); v.appendChild(document.createTextNode('Veja todas as peças do ' + atual.model + ' na loja ou fale com a gente.'));
     if (WHATSAPP) { const w = el('a', 'c3d-btn c3d-zap', 'Pedir esta peça no WhatsApp'); w.style.marginTop = '14px'; w.target = '_blank'; w.rel = 'noopener'; w.href = 'https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent('Olá! Procuro ' + Z.nome.toLowerCase() + ' para ' + atual.brand + ' ' + atual.model + '.'); v.appendChild(w); }
