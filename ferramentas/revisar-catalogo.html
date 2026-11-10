@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Revisar catálogo de compatibilidade</title>
+<style>
+:root{--bg:#0f1216;--painel:#181d24;--painel2:#1f2630;--borda:#2e3744;--txt:#e6eaf0;--mudo:#9aa6b6;--ac:#4da3ff;--acfundo:#12304f;--ok:#3ecf8e;--aviso:#f5b84a;--erro:#ff6b6b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.45 system-ui,Segoe UI,Roboto,Arial,sans-serif}
+header{padding:14px 16px;border-bottom:1px solid var(--borda);display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+h1{font-size:18px;margin:0}
+main{padding:14px 16px;max-width:1500px;margin:0 auto}
+button,input,select{font:inherit;color:var(--txt);background:var(--painel2);border:1px solid var(--borda);border-radius:6px;padding:6px 10px;min-height:34px}
+button{cursor:pointer}
+button:hover:not(:disabled){border-color:var(--ac)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.pri{background:var(--ac);color:#06121f;border-color:var(--ac);font-weight:600}
+:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.barra{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.painel{background:var(--painel);border:1px solid var(--borda);border-radius:8px;padding:12px;margin-bottom:12px}
+.painel h2{font-size:14px;margin:0 0 8px;color:var(--mudo);font-weight:600}
+#soltar{border:2px dashed var(--borda);border-radius:10px;padding:40px 16px;text-align:center;color:var(--mudo)}
+#soltar.sobre{border-color:var(--ac);background:var(--acfundo)}
+.cont{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px}
+.cont button{text-align:left;padding:10px 12px}
+.cont b{display:block;font-size:22px}
+.cont button[aria-pressed=true]{border-color:var(--ac);background:var(--acfundo)}
+label.ck{display:inline-flex;gap:6px;align-items:center}
+input[type=checkbox]{min-height:auto;width:18px;height:18px;accent-color:var(--ac)}
+.tabela{overflow-x:auto;border:1px solid var(--borda);border-radius:8px}
+table{border-collapse:collapse;width:100%;min-width:900px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--borda);text-align:left;vertical-align:top}
+th{background:var(--painel);font-size:13px;color:var(--mudo)}
+tr.sel td{background:var(--acfundo)}
+.chip{display:inline-block;background:var(--painel2);border:1px solid var(--borda);border-radius:12px;padding:1px 9px;margin:2px 3px 2px 0;font-size:12.5px}
+.chip.v{border-color:#3b5b82}
+.chip.x{border-color:var(--erro);color:var(--erro)}
+.chip button{border:0;background:none;padding:0 0 0 6px;min-height:auto;color:var(--mudo)}
+.chip button:hover{color:var(--erro)}
+.vazio{color:var(--aviso);font-size:13px}
+.sku{color:var(--mudo);font-size:12.5px}
+.pag{display:flex;gap:8px;align-items:center;justify-content:center;margin:12px 0;flex-wrap:wrap}
+dialog{background:var(--painel);color:var(--txt);border:1px solid var(--borda);border-radius:10px;width:min(680px,94vw);padding:16px}
+dialog::backdrop{background:rgba(0,0,0,.6)}
+.campo{margin:12px 0}
+.campo>label{display:block;color:var(--mudo);font-size:13px;margin-bottom:4px}
+#aviso{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:var(--painel2);border:1px solid var(--ac);border-radius:8px;padding:8px 14px;max-width:90vw}
+.oculto{display:none!important}
+.mudo{color:var(--mudo)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Revisar catálogo de compatibilidade</h1>
+  <div class="barra" role="toolbar" aria-label="Ações do arquivo">
+    <input type="file" id="arq" accept=".json,application/json" aria-label="Abrir catalogo.json">
+    <button id="desfazer" disabled title="Ctrl+Z">Desfazer</button>
+    <button id="refazer" disabled title="Ctrl+Y">Refazer</button>
+    <button id="expJson" class="pri" disabled>Exportar catalogo.json</button>
+    <button id="expCsv" disabled>Relatório de pendências (CSV)</button>
+  </div>
+</header>
+<main>
+  <div id="soltar" tabindex="0" role="region" aria-label="Área para soltar o arquivo catalogo.json">
+    Arraste o <b>catalogo.json</b> aqui ou use o botão acima.<br>
+    <span class="mudo">Tudo roda no seu navegador; nada é enviado a servidor.</span>
+  </div>
+  <div id="app" class="oculto">
+    <div class="cont" id="contadores" role="group" aria-label="Contadores (clique para filtrar)"></div>
+    <section class="painel" aria-label="Filtros">
+      <h2>Filtros</h2>
+      <div class="barra">
+        <label>Busca <input type="search" id="fTexto" placeholder="nome ou SKU"></label>
+        <label>Veículo <select id="fVeic"></select></label>
+        <label>Peça <select id="fPeca"></select></label>
+        <label class="ck"><input type="checkbox" id="fSemPeca"> sem peça</label>
+        <label class="ck"><input type="checkbox" id="fSemVeic"> sem veículo</label>
+        <label class="ck"><input type="checkbox" id="fUniv"> universal</label>
+        <button id="fLimpar">Limpar filtros</button>
+      </div>
+    </section>
+    <section class="painel" aria-label="Edição em massa">
+      <h2>Edição em massa — <span id="nSel">0</span> selecionado(s)</h2>
+      <div class="barra">
+        <button id="selFiltro">Selecionar todas do filtro</button>
+        <button id="selLimpar">Limpar seleção</button>
+      </div>
+      <div class="barra" style="margin-top:8px">
+        <label>Peça <input id="mPeca" list="dlPecas" placeholder="digite o nome" autocomplete="off"></label>
+        <button id="mAddPeca">Adicionar peça</button><button id="mRmPeca">Remover peça</button>
+        <label>Veículo <input id="mVeic" list="dlVeic" placeholder="digite o modelo" autocomplete="off"></label>
+        <button id="mAddVeic">Adicionar veículo</button><button id="mRmVeic">Remover veículo</button>
+      </div>
+      <div class="barra" style="margin-top:8px">
+        <label>Anos de <input id="mAi" type="number" min="1900" max="2100" style="width:90px"></label>
+        <label>até <input id="mAf" type="number" min="1900" max="2100" style="width:90px"></label>
+        <button id="mAnos">Definir anos</button><button id="mSemAnos">Limpar anos</button>
+        <button id="mUnivSim">Marcar universal</button><button id="mUnivNao">Desmarcar universal</button>
+      </div>
+    </section>
+    <div class="tabela"><table>
+      <caption class="mudo" style="text-align:left;padding:6px 10px" id="legenda"></caption>
+      <thead><tr>
+        <th scope="col"><input type="checkbox" id="selPag" aria-label="Selecionar linhas desta página"></th>
+        <th scope="col">Produto</th><th scope="col">Peças</th><th scope="col">Veículos</th><th scope="col">Anos</th><th scope="col">Univ.</th><th scope="col">Ação</th>
+      </tr></thead>
+      <tbody id="corpo"></tbody>
+    </table></div>
+    <nav class="pag" aria-label="Paginação">
+      <button id="pAnt">Anterior</button><span id="pInfo" aria-live="polite"></span><button id="pProx">Próxima</button>
+      <label>Por página <select id="pTam"><option>25</option><option selected>50</option><option>100</option><option>200</option></select></label>
+    </nav>
+  </div>
+</main>
+<datalist id="dlPecas"></datalist>
+<datalist id="dlVeic"></datalist>
+<dialog id="dlg" aria-labelledby="dlgT"></dialog>
+<div id="aviso" class="oculto" role="status" aria-live="polite"></div>
+<script>
+'use strict';
+/* Dicionário chave -> nome amigável (extraído de gerar-catalogo.mjs e pagina-completa.html) */
+const NOMES_PECAS = /*NOMES*/{"capo":"Capô","parachoque-d":"Para-choque dianteiro","farol":"Faróis","parabrisa":"Parabrisa","teto":"Teto","portas":"Portas","retrovisor":"Retrovisores","rodas":"Rodas","portamalas":"Porta-malas","lanterna":"Lanternas","parachoque-t":"Para-choque traseiro","motor":"Motor","radiador":"Radiador","cambio":"Câmbio","suspensao":"Suspensão","freios":"Freios","escapamento":"Escapamento","embreagem":"Embreagem","turbo":"Turbo","alternador":"Alternador","bateria":"Bateria","partida":"Motor de partida","bomba-comb":"Bomba de combustível","direcao":"Direção","limpador":"Limpador de parabrisa","distribuicao":"Kit de distribuição","motor-v6":"Motor V6 (3.6) explodido","arrefecimento":"Arrefecimento animado","lift":"Kit lift antes/depois","corte-termostato":"Termostato em corte","corte-borboleta":"Borboleta em corte","corte-solenoide":"Solenoide em corte","corte-sensor-oleo":"Sensor de óleo em corte","cabecote":"Cabeçote","valvulas":"Válvulas","comando":"Comando de válvulas","pistao":"Pistão e bielas","virabrequim":"Virabrequim","volante":"Volante do motor","correia":"Correia e polias","vela":"Velas","coletor":"Coletor de escape","carter":"Cárter","bloco":"Bloco do motor","junta":"Junta do cabeçote","bomba-agua":"Bomba d'água","filtro-oleo":"Filtro de óleo","disco-freio":"Disco de freio","pastilha":"Pastilhas de freio","pinca":"Pinça de freio","cubo-roda":"Cubo de roda","flexivel-freio":"Flexível de freio","amortecedor":"Amortecedor","mola":"Mola helicoidal","batente":"Kit batente e coifa","coxim":"Coxim do amortecedor","manga":"Manga de eixo","pivo":"Pivô de suspensão","bandeja":"Bandeja","estabilizadora":"Barra estabilizadora","bieleta":"Bieleta","ventoinha":"Eletroventilador","mangueira":"Mangueiras do radiador","tampa-radiador":"Tampa do radiador","reservatorio":"Reservatório de expansão","termostato":"Válvula termostática","carcaca-cambio":"Carcaça do câmbio","engrenagens":"Engrenagens do câmbio","eixos-cambio":"Eixos do câmbio","sincronizador":"Sincronizador","garfo-cambio":"Garfo de engate","rolamento-cambio":"Rolamentos do câmbio","coletor-esc":"Coletor de escape","sonda":"Sonda lambda","catalisador":"Catalisador","flexivel-esc":"Flexível do escapamento","silencioso-int":"Silencioso intermediário","silencioso":"Silencioso traseiro","ponteira":"Ponteira","coxim-esc":"Coxim do escapamento","volante-emb":"Volante do motor","disco-embreagem":"Disco de embreagem","plato":"Platô","rolamento-embreagem":"Rolamento de embreagem","garfo-embreagem":"Garfo de embreagem","turbina":"Carcaça da turbina","compressor":"Carcaça do compressor","cartucho":"Cartucho (CHRA)","rotor-turbo":"Eixo e rotor","wastegate":"Válvula wastegate","carcaca-alt":"Carcaça do alternador","estator":"Estator","rotor-alt":"Rotor do alternador","polia-alt":"Polia do alternador","regulador":"Regulador de voltagem","retificador":"Ponte retificadora","escovas":"Porta-escovas","capa-retro":"Capa do retrovisor","espelho-retro":"Espelho do retrovisor","motor-retro":"Atuador do espelho","pisca-retro":"Pisca do retrovisor","base-retro":"Base do retrovisor","lente-farol":"Lente do farol","moldura-farol":"Moldura do farol","projetor-farol":"Projetor do farol","refletor":"Refletor do farol","lampada-farol":"Lâmpada do farol","lente-lanterna":"Lente da lanterna","placa-led":"Placa de LED","soquete-lanterna":"Soquete e chicote","pneu":"Pneu","parafuso-roda":"Parafusos de roda","calota":"Calota central","valvula-pneu":"Válvula do pneu","macaneta":"Maçaneta","vidro-porta":"Vidro da porta","fechadura":"Fechadura","regulador-vidro":"Regulador do vidro","motor-vidro":"Motor do vidro","borracha-porta":"Borracha da porta","placas-bateria":"Placas da bateria","tampa-bateria":"Tampa da bateria","terminal-bateria":"Terminais da bateria","alca-bateria":"Alça da bateria","induzido":"Induzido","solenoide":"Solenoide (automático)","bendix":"Bendix","escovas-partida":"Escovas da partida","flange-comb":"Flange da bomba","filtro-comb":"Filtro da bomba","boia":"Boia do tanque","regulador-pressao":"Regulador de pressão","cremalheira":"Cremalheira","pinhao":"Pinhão da direção","coifa-direcao":"Coifa da direção","barra-axial":"Barra axial","terminal-direcao":"Terminal de direção","motor-limpador":"Motor do limpador","braco-limpador":"Braço do limpador","palheta":"Palheta","bico-esguicho":"Bico do esguicho","polia-comando":"Polia do comando","polia-virabrequim":"Polia do virabrequim","bomba-dagua-kit":"Bomba d'água","tensor":"Tensor","polia-guia":"Polia guia","coletor-admissao":"Coletor de admissão","corpo-borboleta":"Corpo de borboleta","tampa-valvulas":"Tampa de válvulas","cabecote-v6":"Cabeçote","bobina-v6":"Bobinas de ignição","bomba-agua-v6":"Bomba d'água","resfriador-v6":"Resfriador de óleo","carter-v6":"Cárter","sensor-oleo-v6":"Sensor de pressão de óleo","bomba-agua-arref":"Bomba d'água","termostato-arref":"Válvula termostática","radiador-arref":"Radiador","ventoinha-arref":"Eletroventilador","reservatorio-arref":"Reservatório de expansão","resfriador-oleo":"Resfriador de óleo","mangueira-arref":"Mangueiras e conectores","amortecedor-lift":"Amortecedor off-road","mola-lift":"Mola do kit lift","bandeja-lift":"Bandeja / braço de controle","coxim-lift":"Coxim e batente","barra-track":"Barra track","pneu-lift":"Pneu e roda","termo-elemento":"Elemento termostático","termo-mola":"Mola do termostato","termo-vedacao":"Junta e vedação","borb-eixo-placa":"Placa e eixo da borboleta","borb-motor":"Atuador eletrônico","borb-sensor":"Sensor de posição (TPS)","sol-bobina":"Bobina do solenoide","sol-embolo":"Êmbolo","sol-mola":"Mola de retorno","soe-diafragma":"Diafragma e elemento","soe-conector":"Conector"}/*FIM-NOMES*/;
+
+/*PURO-INICIO*/
+/* ===== Funções puras (sem DOM): testadas por testar-revisar-catalogo.mjs ===== */
+const norm = (t) => String(t == null ? '' : t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+const nomePeca = (k) => NOMES_PECAS[k] || k;
+const rotuloVeic = (v) => v ? (v.marca + ' ' + v.modelo).trim() : '';
+
+/* Valida o catálogo carregado e devolve { cat, produtos } com cópias independentes. */
+function carregarCatalogo(obj) {
+  if (!obj || typeof obj !== 'object' || !Array.isArray(obj.produtos)) throw new Error('Arquivo inválido: esperado um catálogo com a lista "produtos".');
+  const produtos = obj.produtos.map((p) => ({ ...p, pecas: Array.isArray(p.pecas) ? [...p.pecas] : [], veiculos: Array.isArray(p.veiculos) ? [...p.veiculos] : [] }));
+  return { cat: obj, produtos };
+}
+
+/* Produto sem peça / sem veículo (universal não conta como sem veículo). */
+const semPeca = (p) => !p.pecas || p.pecas.length === 0;
+const semVeiculo = (p) => (!p.veiculos || p.veiculos.length === 0) && !p.universal;
+
+function contadores(produtos) {
+  let sp = 0, sv = 0, un = 0;
+  for (const p of produtos) { if (semPeca(p)) sp++; if (semVeiculo(p)) sv++; if (p.universal) un++; }
+  return { total: produtos.length, semPeca: sp, semVeiculo: sv, universais: un };
+}
+
+/* Filtra e devolve a lista de índices (posições em "produtos"). f: {texto, semPeca, semVeiculo, universal, veiculo, peca} */
+function filtrar(produtos, f) {
+  const termos = norm(f.texto || '').split(/\s+/).filter(Boolean);
+  const out = [];
+  for (let i = 0; i < produtos.length; i++) {
+    const p = produtos[i];
+    if (termos.length) { const alvo = norm((p.nome || '') + ' ' + (p.sku || '')); if (!termos.every((t) => alvo.includes(t))) continue; }
+    if (f.semPeca && !semPeca(p)) continue;
+    if (f.semVeiculo && !semVeiculo(p)) continue;
+    if (f.universal && !p.universal) continue;
+    if (f.veiculo && !(p.veiculos || []).includes(f.veiculo)) continue;
+    if (f.peca && !(p.pecas || []).includes(f.peca)) continue;
+    out.push(i);
+  }
+  return out;
+}
+
+/* Aplica uma operação a um produto e devolve a NOVA versão (ou o mesmo objeto se nada mudou).
+   op: {tipo:'addPeca'|'rmPeca'|'addVeic'|'rmVeic'|'anos'|'universal', valor} */
+function aplicarOp(p, op) {
+  const n = { ...p, pecas: [...(p.pecas || [])], veiculos: [...(p.veiculos || [])] };
+  let mudou = false;
+  switch (op.tipo) {
+    case 'addPeca': if (!n.pecas.includes(op.valor)) { n.pecas.push(op.valor); mudou = true; } break;
+    case 'rmPeca': if (n.pecas.includes(op.valor)) { n.pecas = n.pecas.filter((x) => x !== op.valor); mudou = true; } break;
+    case 'addVeic': if (!n.veiculos.includes(op.valor)) { n.veiculos.push(op.valor); mudou = true; } break;
+    case 'rmVeic': if (n.veiculos.includes(op.valor)) { n.veiculos = n.veiculos.filter((x) => x !== op.valor); mudou = true; } break;
+    case 'anos': {
+      const novo = op.valor ? [op.valor[0], op.valor[1]] : undefined;
+      if (JSON.stringify(novo) !== JSON.stringify(p.anos)) { if (novo) n.anos = novo; else delete n.anos; mudou = true; }
+      break;
+    }
+    case 'universal': {
+      const v = !!op.valor;
+      if (v !== !!p.universal) { if (v) n.universal = true; else delete n.universal; mudou = true; }
+      break;
+    }
+    default: throw new Error('Operação desconhecida: ' + op.tipo);
+  }
+  return mudou ? n : p;
+}
+
+/* Aplica a operação em vários índices, mutando "produtos". Devolve o patch [{i, antes, depois}] para desfazer/refazer. */
+function aplicarEmMassa(produtos, indices, op) {
+  const patch = [];
+  for (const i of indices) {
+    const antes = produtos[i], depois = aplicarOp(antes, op);
+    if (depois !== antes) { produtos[i] = depois; patch.push({ i, antes, depois }); }
+  }
+  return patch;
+}
+const desfazerPatch = (produtos, patch) => { for (const x of patch) produtos[x.i] = x.antes; };
+const refazerPatch = (produtos, patch) => { for (const x of patch) produtos[x.i] = x.depois; };
+
+/* Valida faixa de anos. Devolve [ini,fim] ou null (inválida). */
+function faixaAnos(ini, fim) {
+  const a = parseInt(ini, 10), b = parseInt(fim, 10);
+  if (isNaN(a) || isNaN(b) || a < 1900 || b > 2100 || a > b) return null;
+  return [a, b];
+}
+
+/* Monta o catálogo final preservando todos os campos originais que a ferramenta não edita. */
+function montarCatalogo(cat, produtos) {
+  return { ...cat, produtos: produtos.map((p) => {
+    const o = { ...p };
+    if (!o.anos) delete o.anos;
+    if (!o.universal) delete o.universal;
+    return o;
+  }) };
+}
+
+const csvCel = (v) => { const s = String(v == null ? '' : v); return /[";\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+
+/* Relatório CSV (separador ;) dos produtos sem peça ou sem veículo. */
+function relatorioCSV(cat, produtos) {
+  const mapaV = {}; (cat.veiculos || []).forEach((v) => { mapaV[v.id] = rotuloVeic(v); });
+  const linhas = [['sku', 'nome', 'url', 'pendencia', 'pecas', 'veiculos'].join(';')];
+  for (const p of produtos) {
+    const pend = [];
+    if (semPeca(p)) pend.push('sem peça');
+    if (semVeiculo(p)) pend.push('sem veículo');
+    if (!pend.length) continue;
+    linhas.push([p.sku, p.nome, p.url, pend.join(' + '), (p.pecas || []).map(nomePeca).join(' | '), (p.veiculos || []).map((id) => mapaV[id] || id).join(' | ')].map(csvCel).join(';'));
+  }
+  return linhas.join('\r\n');
+}
+
+/* Histórico desfazer/refazer: pilhas de patches, limitado a "max" ações. */
+function novoHistorico(max) { return { feitos: [], desfeitos: [], max: max || 100 }; }
+function registrar(h, patch) { if (!patch.length) return false; h.feitos.push(patch); if (h.feitos.length > h.max) h.feitos.shift(); h.desfeitos.length = 0; return true; }
+function desfazer(h, produtos) { const p = h.feitos.pop(); if (!p) return false; desfazerPatch(produtos, p); h.desfeitos.push(p); return true; }
+function refazer(h, produtos) { const p = h.desfeitos.pop(); if (!p) return false; refazerPatch(produtos, p); h.feitos.push(p); return true; }
+
+/* Resolve o texto digitado/escolhido no autocompletar ("Nome [chave]" ou só o nome) para a chave. */
+function resolverPeca(texto) {
+  const t = String(texto || '').trim(); if (!t) return null;
+  const m = t.match(/\[([^\]]+)\]\s*$/); if (m && NOMES_PECAS[m[1]]) return m[1];
+  if (NOMES_PECAS[t]) return t;
+  const n = norm(t); const achados = Object.keys(NOMES_PECAS).filter((k) => norm(NOMES_PECAS[k]) === n);
+  return achados.length === 1 ? achados[0] : null;
+}
+function resolverVeiculo(cat, texto) {
+  const t = String(texto || '').trim(); if (!t) return null;
+  const vs = cat.veiculos || [];
+  const m = t.match(/\[([^\]]+)\]\s*$/); if (m && vs.some((v) => v.id === m[1])) return m[1];
+  const n = norm(t); const achados = vs.filter((v) => v.id === t || norm(rotuloVeic(v)) === n || norm(v.modelo) === n);
+  return achados.length === 1 ? achados[0].id : null;
+}
+/*PURO-FIM*/
+
+/* ===== Interface ===== */
+const $ = (id) => document.getElementById(id);
+function el(tag, attrs, ...filhos) {
+  const e = document.createElement(tag);
+  for (const k in (attrs || {})) { if (k === 'class') e.className = attrs[k]; else if (k.startsWith('on')) e.addEventListener(k.slice(2), attrs[k]); else e.setAttribute(k, attrs[k]); }
+  for (const f of filhos) if (f != null) e.append(f.nodeType ? f : document.createTextNode(f));
+  return e;
+}
+
+const E = { cat: null, produtos: [], hist: novoHistorico(100), filtro: {}, indices: [], sel: new Set(), pagina: 0, tam: 50, sujo: false, nome: 'catalogo.json', vmap: {} };
+
+function aviso(msg) {
+  const a = $('aviso'); a.textContent = msg; a.classList.remove('oculto');
+  clearTimeout(aviso.t); aviso.t = setTimeout(() => a.classList.add('oculto'), 4000);
+}
+
+function carregarTexto(texto, nome) {
+  let obj;
+  try { obj = JSON.parse(texto.replace(/^﻿/, '')); const r = carregarCatalogo(obj); E.cat = r.cat; E.produtos = r.produtos; }
+  catch (err) { aviso('Não foi possível abrir: ' + err.message); return; }
+  E.nome = nome || 'catalogo.json'; E.hist = novoHistorico(100); E.sel.clear(); E.sujo = false; E.pagina = 0;
+  E.vmap = {}; (E.cat.veiculos || []).forEach((v) => { E.vmap[v.id] = v; });
+  $('soltar').classList.add('oculto'); $('app').classList.remove('oculto');
+  montarListas(); lerFiltros(); atualizar();
+  aviso('Catálogo carregado: ' + E.produtos.length + ' produtos.');
+}
+
+function montarListas() {
+  const dp = $('dlPecas'), dv = $('dlVeic'), fp = $('fPeca'), fv = $('fVeic');
+  dp.replaceChildren(); dv.replaceChildren(); fp.replaceChildren(); fv.replaceChildren();
+  fp.append(el('option', { value: '' }, '(todas)')); fv.append(el('option', { value: '' }, '(todos)'));
+  Object.keys(NOMES_PECAS).sort((a, b) => NOMES_PECAS[a].localeCompare(NOMES_PECAS[b], 'pt-BR')).forEach((k) => {
+    dp.append(el('option', { value: NOMES_PECAS[k] + ' [' + k + ']' })); fp.append(el('option', { value: k }, NOMES_PECAS[k]));
+  });
+  (E.cat.veiculos || []).forEach((v) => {
+    dv.append(el('option', { value: rotuloVeic(v) + ' [' + v.id + ']' })); fv.append(el('option', { value: v.id }, rotuloVeic(v)));
+  });
+}
+
+function lerFiltros() {
+  E.filtro = { texto: $('fTexto').value, semPeca: $('fSemPeca').checked, semVeiculo: $('fSemVeic').checked, universal: $('fUniv').checked, veiculo: $('fVeic').value, peca: $('fPeca').value };
+}
+
+/* Recalcula a lista filtrada e redesenha tudo. */
+function atualizar(manterPagina) {
+  E.indices = filtrar(E.produtos, E.filtro);
+  const ult = Math.max(0, Math.ceil(E.indices.length / E.tam) - 1);
+  if (!manterPagina) E.pagina = 0;
+  if (E.pagina > ult) E.pagina = ult;
+  desenharContadores(); desenharTabela(); estado();
+}
+
+function estado() {
+  $('desfazer').disabled = !E.hist.feitos.length; $('refazer').disabled = !E.hist.desfeitos.length;
+  $('expJson').disabled = $('expCsv').disabled = !E.cat;
+  $('nSel').textContent = E.sel.size;
+}
+
+function desenharContadores() {
+  const c = contadores(E.produtos), f = E.filtro, box = $('contadores'); box.replaceChildren();
+  const cartao = (rot, n, ativo, fn) => box.append(el('button', { type: 'button', 'aria-pressed': String(!!ativo), onclick: fn }, el('b', null, n.toLocaleString('pt-BR')), rot));
+  const so = (campo) => { ['fSemPeca', 'fSemVeic', 'fUniv'].forEach((id) => { $(id).checked = false; }); if (campo) $(campo).checked = true; lerFiltros(); atualizar(); };
+  cartao('Total de produtos', c.total, !f.semPeca && !f.semVeiculo && !f.universal, () => so(null));
+  cartao('Sem peça reconhecida', c.semPeca, f.semPeca, () => so('fSemPeca'));
+  cartao('Sem veículo (nem universal)', c.semVeiculo, f.semVeiculo, () => so('fSemVeic'));
+  cartao('Universais', c.universais, f.universal, () => so('fUniv'));
+}
+
+const chipPeca = (k) => el('span', { class: 'chip' + (NOMES_PECAS[k] ? '' : ' x'), title: k }, nomePeca(k));
+const chipVeic = (id) => { const v = E.vmap[id]; return el('span', { class: 'chip v' + (v ? '' : ' x'), title: id }, v ? rotuloVeic(v) + (v.anos ? ' ' + v.anos[0] + '-' + v.anos[1] : '') : id + ' (desconhecido)'); };
+
+function desenharTabela() {
+  const corpo = $('corpo'); corpo.replaceChildren();
+  const ini = E.pagina * E.tam, fatia = E.indices.slice(ini, ini + E.tam);
+  const frag = document.createDocumentFragment();
+  for (const i of fatia) {
+    const p = E.produtos[i];
+    const ck = el('input', { type: 'checkbox', 'aria-label': 'Selecionar ' + p.nome, onchange: (ev) => { if (ev.target.checked) E.sel.add(i); else E.sel.delete(i); ev.target.closest('tr').classList.toggle('sel', ev.target.checked); estado(); } });
+    ck.checked = E.sel.has(i);
+    const pecas = el('td', null); if (p.pecas.length) p.pecas.forEach((k) => pecas.append(chipPeca(k))); else pecas.append(el('span', { class: 'vazio' }, 'sem peça'));
+    const veics = el('td', null); if (p.veiculos.length) p.veiculos.forEach((id) => veics.append(chipVeic(id))); else veics.append(el('span', { class: p.universal ? 'mudo' : 'vazio' }, p.universal ? '(universal)' : 'sem veículo'));
+    const tr = el('tr', { class: E.sel.has(i) ? 'sel' : '' },
+      el('td', null, ck),
+      el('td', null, el('div', null, p.nome || '(sem nome)'), el('div', { class: 'sku' }, 'SKU: ' + (p.sku || '—'))),
+      pecas, veics,
+      el('td', null, p.anos ? p.anos[0] + '–' + p.anos[1] : '—'),
+      el('td', null, p.universal ? 'Sim' : 'Não'),
+      el('td', null, el('button', { type: 'button', 'aria-label': 'Editar ' + p.nome, onclick: () => abrirEdicao(i) }, 'Editar')));
+    frag.append(tr);
+  }
+  corpo.append(frag);
+  const tot = E.indices.length, pags = Math.max(1, Math.ceil(tot / E.tam));
+  $('legenda').textContent = tot.toLocaleString('pt-BR') + ' produto(s) no filtro de ' + E.produtos.length.toLocaleString('pt-BR') + '.';
+  $('pInfo').textContent = 'Página ' + (E.pagina + 1) + ' de ' + pags;
+  $('pAnt').disabled = E.pagina <= 0; $('pProx').disabled = E.pagina >= pags - 1;
+  $('selPag').checked = fatia.length > 0 && fatia.every((i) => E.sel.has(i));
+}
+
+/* Aplica uma operação a índices, registra no histórico e redesenha. */
+function executar(indices, op, rotulo) {
+  const patch = aplicarEmMassa(E.produtos, indices, op);
+  if (!registrar(E.hist, patch)) { aviso('Nada mudou (já estava assim).'); return false; }
+  E.sujo = true; atualizar(true);
+  if (rotulo) aviso(rotulo + ': ' + patch.length + ' produto(s) alterado(s).');
+  return true;
+}
+
+/* ----- Edição por linha (diálogo) ----- */
+let idxEdit = -1;
+function abrirEdicao(i) { idxEdit = i; desenharDialogo(); const d = $('dlg'); if (!d.open) d.showModal(); }
+
+function desenharDialogo() {
+  const p = E.produtos[idxEdit], d = $('dlg'); d.replaceChildren();
+  const lista = (itens, rm, vazio) => { const w = el('div'); if (!itens.length) w.append(el('span', { class: 'vazio' }, vazio)); itens.forEach(([rot, chave, cls]) => w.append(el('span', { class: 'chip ' + cls }, rot, el('button', { type: 'button', 'aria-label': 'Remover ' + rot, onclick: () => { executar([idxEdit], { tipo: rm, valor: chave }); desenharDialogo(); } }, '×')))); return w; };
+  const iPeca = el('input', { id: 'ePeca', list: 'dlPecas', placeholder: 'digite para buscar', autocomplete: 'off' });
+  const iVeic = el('input', { id: 'eVeic', list: 'dlVeic', placeholder: 'digite para buscar', autocomplete: 'off' });
+  const addPeca = () => { const k = resolverPeca(iPeca.value); if (!k) { aviso('Peça não encontrada. Escolha uma opção da lista.'); return; } executar([idxEdit], { tipo: 'addPeca', valor: k }); desenharDialogo(); $('ePeca').focus(); };
+  const addVeic = () => { const k = resolverVeiculo(E.cat, iVeic.value); if (!k) { aviso('Veículo não encontrado. Escolha uma opção da lista.'); return; } executar([idxEdit], { tipo: 'addVeic', valor: k }); desenharDialogo(); $('eVeic').focus(); };
+  iPeca.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addPeca(); } });
+  iVeic.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addVeic(); } });
+  const ai = el('input', { id: 'eAi', type: 'number', min: '1900', max: '2100', style: 'width:100px', value: p.anos ? p.anos[0] : '' });
+  const af = el('input', { id: 'eAf', type: 'number', min: '1900', max: '2100', style: 'width:100px', value: p.anos ? p.anos[1] : '' });
+  const univ = el('input', { type: 'checkbox', id: 'eUniv', onchange: (e) => { executar([idxEdit], { tipo: 'universal', valor: e.target.checked }); desenharDialogo(); $('eUniv').focus(); } }); univ.checked = !!p.universal;
+  d.append(
+    el('h2', { id: 'dlgT', style: 'margin-top:0;font-size:17px' }, p.nome || '(sem nome)'),
+    el('div', { class: 'sku' }, 'SKU: ' + (p.sku || '—')),
+    el('div', { class: 'campo' }, el('label', null, 'Peças'), lista(p.pecas.map((k) => [nomePeca(k), k, NOMES_PECAS[k] ? '' : 'x']), 'rmPeca', 'nenhuma peça'),
+      el('div', { class: 'barra', style: 'margin-top:6px' }, el('label', { for: 'ePeca', class: 'mudo' }, 'Adicionar peça'), iPeca, el('button', { type: 'button', onclick: addPeca }, 'Adicionar'))),
+    el('div', { class: 'campo' }, el('label', null, 'Veículos'), lista(p.veiculos.map((id) => [E.vmap[id] ? rotuloVeic(E.vmap[id]) : id + ' (desconhecido)', id, E.vmap[id] ? 'v' : 'x']), 'rmVeic', p.universal ? 'universal (sem veículo específico)' : 'nenhum veículo'),
+      el('div', { class: 'barra', style: 'margin-top:6px' }, el('label', { for: 'eVeic', class: 'mudo' }, 'Adicionar veículo'), iVeic, el('button', { type: 'button', onclick: addVeic }, 'Adicionar'))),
+    el('div', { class: 'campo barra' }, el('label', { for: 'eAi', class: 'mudo' }, 'Anos de'), ai, el('label', { for: 'eAf', class: 'mudo' }, 'até'), af,
+      el('button', { type: 'button', onclick: () => { const f = faixaAnos(ai.value, af.value); if (!f) { aviso('Faixa de anos inválida (ex.: 2011 a 2016).'); return; } executar([idxEdit], { tipo: 'anos', valor: f }); desenharDialogo(); } }, 'Aplicar anos'),
+      el('button', { type: 'button', onclick: () => { executar([idxEdit], { tipo: 'anos', valor: null }); desenharDialogo(); } }, 'Limpar anos')),
+    el('div', { class: 'campo' }, el('label', { class: 'ck' }, univ, ' Produto universal')),
+    el('div', { class: 'barra', style: 'justify-content:flex-end' }, el('button', { type: 'button', class: 'pri', onclick: () => $('dlg').close() }, 'Fechar')));
+}
+
+/* ----- Edição em massa ----- */
+function selecionados() { return [...E.sel].sort((a, b) => a - b); }
+function massa(op, rotulo) {
+  const ids = selecionados(); if (!ids.length) { aviso('Selecione ao menos um produto.'); return; }
+  executar(ids, op, rotulo);
+}
+function massaPeca(tipo, rot) { const k = resolverPeca($('mPeca').value); if (!k) { aviso('Escolha uma peça da lista.'); return; } massa({ tipo, valor: k }, rot); }
+function massaVeic(tipo, rot) { const k = resolverVeiculo(E.cat, $('mVeic').value); if (!k) { aviso('Escolha um veículo da lista.'); return; } massa({ tipo, valor: k }, rot); }
+
+/* ----- Exportação ----- */
+function baixar(nome, texto, tipo) {
+  const url = URL.createObjectURL(new Blob([texto], { type: tipo })), a = el('a', { href: url, download: nome });
+  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/* ----- Eventos ----- */
+function lerArquivo(f) { if (!f) return; const r = new FileReader(); r.onload = () => carregarTexto(String(r.result), f.name); r.readAsText(f, 'utf-8'); }
+$('arq').addEventListener('change', (e) => lerArquivo(e.target.files[0]));
+const zona = $('soltar');
+['dragenter', 'dragover'].forEach((n) => document.addEventListener(n, (e) => { e.preventDefault(); zona.classList.add('sobre'); }));
+['dragleave', 'drop'].forEach((n) => document.addEventListener(n, (e) => { e.preventDefault(); zona.classList.remove('sobre'); }));
+document.addEventListener('drop', (e) => lerArquivo(e.dataTransfer.files[0]));
+zona.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('arq').click(); } });
+
+let tFiltro; const refiltrar = () => { lerFiltros(); atualizar(); };
+$('fTexto').addEventListener('input', () => { clearTimeout(tFiltro); tFiltro = setTimeout(refiltrar, 150); });
+['fVeic', 'fPeca', 'fSemPeca', 'fSemVeic', 'fUniv'].forEach((id) => $(id).addEventListener('change', refiltrar));
+$('fLimpar').addEventListener('click', () => { $('fTexto').value = ''; $('fVeic').value = ''; $('fPeca').value = ''; ['fSemPeca', 'fSemVeic', 'fUniv'].forEach((id) => { $(id).checked = false; }); refiltrar(); });
+
+$('pAnt').addEventListener('click', () => { E.pagina--; desenharTabela(); });
+$('pProx').addEventListener('click', () => { E.pagina++; desenharTabela(); });
+$('pTam').addEventListener('change', (e) => { E.tam = +e.target.value; atualizar(); });
+$('selPag').addEventListener('change', (e) => { const ini = E.pagina * E.tam; E.indices.slice(ini, ini + E.tam).forEach((i) => { if (e.target.checked) E.sel.add(i); else E.sel.delete(i); }); desenharTabela(); estado(); });
+$('selFiltro').addEventListener('click', () => { E.indices.forEach((i) => E.sel.add(i)); desenharTabela(); estado(); aviso(E.sel.size + ' produto(s) selecionado(s).'); });
+$('selLimpar').addEventListener('click', () => { E.sel.clear(); desenharTabela(); estado(); });
+
+$('mAddPeca').addEventListener('click', () => massaPeca('addPeca', 'Peça adicionada'));
+$('mRmPeca').addEventListener('click', () => massaPeca('rmPeca', 'Peça removida'));
+$('mAddVeic').addEventListener('click', () => massaVeic('addVeic', 'Veículo adicionado'));
+$('mRmVeic').addEventListener('click', () => massaVeic('rmVeic', 'Veículo removido'));
+$('mAnos').addEventListener('click', () => { const f = faixaAnos($('mAi').value, $('mAf').value); if (!f) { aviso('Faixa de anos inválida (ex.: 2011 a 2016).'); return; } massa({ tipo: 'anos', valor: f }, 'Anos definidos'); });
+$('mSemAnos').addEventListener('click', () => massa({ tipo: 'anos', valor: null }, 'Anos limpos'));
+$('mUnivSim').addEventListener('click', () => massa({ tipo: 'universal', valor: true }, 'Marcado universal'));
+$('mUnivNao').addEventListener('click', () => massa({ tipo: 'universal', valor: false }, 'Universal desmarcado'));
+
+function fazerDesfazer() { if (desfazer(E.hist, E.produtos)) { E.sujo = true; atualizar(true); if ($('dlg').open) desenharDialogo(); } }
+function fazerRefazer() { if (refazer(E.hist, E.produtos)) { E.sujo = true; atualizar(true); if ($('dlg').open) desenharDialogo(); } }
+$('desfazer').addEventListener('click', fazerDesfazer);
+$('refazer').addEventListener('click', fazerRefazer);
+document.addEventListener('keydown', (e) => {
+  if (!(e.ctrlKey || e.metaKey) || !E.cat) return;
+  const t = e.target.tagName; if (t === 'INPUT' && e.target.type !== 'checkbox' || t === 'SELECT') return;
+  const k = e.key.toLowerCase();
+  if (k === 'z' && !e.shiftKey) { e.preventDefault(); fazerDesfazer(); } else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); fazerRefazer(); }
+});
+
+$('expJson').addEventListener('click', () => {
+  baixar(E.nome.replace(/(\.json)?$/i, '') + '-corrigido.json', JSON.stringify(montarCatalogo(E.cat, E.produtos), null, 1), 'application/json');
+  E.sujo = false; aviso('catalogo exportado.');
+});
+$('expCsv').addEventListener('click', () => baixar('pendencias-catalogo.csv', '﻿' + relatorioCSV(E.cat, E.produtos), 'text/csv;charset=utf-8'));
+window.addEventListener('beforeunload', (e) => { if (E.sujo) { e.preventDefault(); e.returnValue = ''; } });
+</script>
+</body>
+</html>

@@ -77,12 +77,19 @@ const WHATSAPP = String(CFG.loja.whatsapp || '').replace(/\D/g, '') || zapLoja()
 const $ = (id) => document.getElementById(id);
 const semAcento = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const semHifen = (t) => t.replace(/-/g, '');
+const SESSAO = (function () { try { let v = sessionStorage.getItem('apc_sessao'); if (!v) { v = Math.random().toString(36).slice(2, 10); sessionStorage.setItem('apc_sessao', v); } return v; } catch (e) { return 'anon'; } })();
 function track(nome, dados) {
   try {
     const d = Object.assign({ event: nome }, dados || {});
     (window.dataLayer = window.dataLayer || []).push(d);
     if (typeof window.gtag === 'function') window.gtag('event', nome, dados || {});
     if (typeof window.fbq === 'function') window.fbq('trackCustom', nome, dados || {});
+    const an = CFG.analytics;
+    if (an && an.endpoint) {
+      const corpo = JSON.stringify(Object.assign({ t: new Date().toISOString(), ev: nome, loja: CFG.loja.nome || '', s: SESSAO, token: an.token || '' }, dados || {}));
+      if (navigator.sendBeacon) navigator.sendBeacon(an.endpoint, new Blob([corpo], { type: 'text/plain;charset=UTF-8' }));
+      else fetch(an.endpoint, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=UTF-8' }, body: corpo, keepalive: true }).catch(() => {});
+    }
   } catch (e) {}
 }
 function setAnoSel() { $('c3d-ano').value = ano || 'todos'; }
@@ -212,21 +219,77 @@ const fmtPreco = (v) => { if (v == null || v === '') return ''; if (typeof v ===
 /* Produtos do catálogo para uma parte: respeita a compatibilidade com o veículo aberto.
    _c: 2 = serve neste veículo, 1 = universal, 0 = sem informação de compatibilidade */
 function chavesDaZona(z) { return [z].concat((typeof GRUPO_CHAVES !== 'undefined' && GRUPO_CHAVES[z]) || []); }
+/* garagem do cliente: veículo, ano, motor e CEP, lembrados em todas as páginas da loja */
+function lerGaragem() { try { return JSON.parse(ler('apc_garagem_v1') || '{}') || {}; } catch (e) { return {}; } }
+function salvarGaragem(pt) { const g = Object.assign(lerGaragem(), pt); guardar('apc_garagem_v1', JSON.stringify(g)); return g; }
+const normMotor = (t) => semAcento(String(t || '')).toLowerCase().replace(/[^a-z0-9.]/g, '');
+let mostrarIncomp = false;
+/* serve | universal | confira | nao: cruza o produto com o veículo, o ano e o motor da garagem */
+function statusCompat(pr) {
+  if (pr.universal) return { st: 'universal', msg: 'Universal' };
+  if (!atual) return { st: 'confira', msg: 'Confira a compatibilidade' };
+  if (!(pr.veiculos && pr.veiculos.length)) return { st: 'confira', msg: 'Confira a compatibilidade' };
+  if (pr.veiculos.indexOf(atual.id) < 0) return { st: 'nao', msg: 'Não serve no ' + atual.model };
+  const g = lerGaragem(), faixa = pr.anos && pr.anos.length ? pr.anos[0] + (pr.anos[1] && pr.anos[1] !== pr.anos[0] ? '\u2013' + pr.anos[1] : '') : '';
+  if (g.ano && pr.anos && pr.anos.length && (g.ano < pr.anos[0] || g.ano > (pr.anos[1] || pr.anos[0]))) return { st: 'nao', msg: 'Não serve em ' + g.ano + ' (' + faixa + ')' };
+  if (g.motor && pr.motores && pr.motores.length && !pr.motores.some((m) => normMotor(m) === normMotor(g.motor))) return { st: 'nao', msg: 'Não serve no motor ' + g.motor };
+  if (pr.motores && pr.motores.length && !g.motor) return { st: 'confira', msg: 'Confira o motor: ' + pr.motores.join(' / ') };
+  return { st: 'serve', msg: 'Serve no ' + atual.model + (g.ano ? ' ' + g.ano : (faixa ? ' \u00b7 ' + faixa : '')) };
+}
 function produtosDaZona(z) {
   if (!CAT || !CAT.produtos) return [];
-  const ks = chavesDaZona(z), out = [];
+  const ks = chavesDaZona(z), out = []; let ocultos = 0;
   CAT.produtos.forEach((pr) => {
     const alvo = (pr.pecas || []).concat(pr.sistemas || []);
     if (!ks.some((k) => alvo.indexOf(k) >= 0)) return;
-    let c = 0;
-    if (pr.universal) c = 1; else if (pr.veiculos && pr.veiculos.length && atual) { if (pr.veiculos.indexOf(atual.id) < 0) return; c = 2; }
-    out.push({ pr: pr, c: c });
+    const sc = statusCompat(pr);
+    if (sc.st === 'nao' && !mostrarIncomp) { ocultos++; return; }
+    out.push({ pr: pr, sc: sc });
   });
-  out.sort((a, b) => b.c - a.c);
-  return out.map((o) => Object.assign({}, o.pr, { img: o.pr.img || o.pr.imagem || '', preco: fmtPreco(o.pr.preco), preco_de: fmtPreco(o.pr.preco_de), _c: o.c }));
+  const ordem = { serve: 0, universal: 1, confira: 2, nao: 3 };
+  out.sort((a, b) => ordem[a.sc.st] - ordem[b.sc.st]);
+  const lista = out.map((o) => Object.assign({}, o.pr, { img: o.pr.img || o.pr.imagem || '', preco: fmtPreco(o.pr.preco), preco_de: fmtPreco(o.pr.preco_de), _st: o.sc.st, _msg: o.sc.msg }));
+  lista.ocultos = ocultos; return lista;
 }
-const memoContagem = {};
-function contagemZona(z) { if (!CAT) return null; const k = (atual ? atual.id : '') + '|' + z; if (memoContagem[k] == null) memoContagem[k] = produtosDaZona(z).length; return memoContagem[k]; }
+let memoContagem = {};
+function limparMemoContagem() { memoContagem = {}; }
+function contagemZona(z) { if (!CAT) return null; const g = lerGaragem(), k = (atual ? atual.id : '') + '|' + (g.ano || '') + '|' + (g.motor || '') + '|' + z; if (memoContagem[k] == null) memoContagem[k] = produtosDaZona(z).length; return memoContagem[k]; }
+/* frete estimado por UF (tabela da loja em loja.config.json → "frete") */
+function freteDe(pr) {
+  const f = CFG.frete; if (!f) return '';
+  const g = lerGaragem(); if (!g.uf) return '';
+  const t = (f.tabela && f.tabela[g.uf]) || f.padrao; if (!t) return '';
+  const v = numPreco(pr.preco), gratis = f.gratis_acima && v && v >= f.gratis_acima;
+  return 'Entrega para ' + (g.cidade || g.uf) + ': ' + (gratis ? 'frete grátis' : 'R$ ' + Number(t.valor).toFixed(2).replace('.', ',')) + (t.prazo ? ' \u00b7 ' + t.prazo : '');
+}
+function refrescarPainel() { limparMemoContagem(); atualizarContagens(); if (zonaAtual && !emDiag) mostrarPecas(zonaAtual); else if (!zonaAtual) painelInicial(sistemaAtual); }
+function desenharGaragem() {
+  let b = $('c3d-gar2'); const c = atual;
+  const anos = c && c.anos && c.anos.length ? c.anos : null, motores = c && c.motor ? String(c.motor).split(/\s*[\/,;]\s*/).filter(Boolean) : [];
+  if (!c || (!anos && !motores.length && !CFG.frete)) { if (b) b.hidden = true; return; }
+  if (!b) { b = el('div', 'c3d-gar2'); b.id = 'c3d-gar2'; const alvo = $('c3d-garagem') || document.querySelector('.c3d-topo'); alvo.insertAdjacentElement('afterend', b); }
+  b.hidden = false; b.textContent = '';
+  const g = lerGaragem();
+  b.appendChild(el('b', null, 'Meu veículo')); b.appendChild(el('span', 'nome', c.brand + ' ' + c.model));
+  const mudou = (nome, valor) => { const o = {}; o[nome] = valor; salvarGaragem(o); track('c3d_garagem', { veiculo: c.id, ano: lerGaragem().ano || '', motor: lerGaragem().motor || '' }); refrescarPainel(); };
+  if (anos) {
+    const lb = el('label'); lb.appendChild(el('span', null, 'Ano')); const sel = document.createElement('select'); sel.setAttribute('aria-label', 'Ano do veículo');
+    sel.appendChild(new Option('Todos', '')); for (let a = anos[1]; a >= anos[0]; a--) sel.appendChild(new Option(String(a), String(a)));
+    sel.value = g.ano && g.ano >= anos[0] && g.ano <= anos[1] ? String(g.ano) : ''; sel.onchange = () => mudou('ano', sel.value ? +sel.value : null); lb.appendChild(sel); b.appendChild(lb);
+  }
+  if (motores.length) {
+    const lb = el('label'); lb.appendChild(el('span', null, 'Motor')); const sel = document.createElement('select'); sel.setAttribute('aria-label', 'Motor do veículo');
+    sel.appendChild(new Option('Todos', '')); motores.forEach((m) => sel.appendChild(new Option(m, m))); sel.value = g.motor && motores.indexOf(g.motor) >= 0 ? g.motor : ''; sel.onchange = () => mudou('motor', sel.value); lb.appendChild(sel); b.appendChild(lb);
+  }
+  if (CFG.frete) {
+    const lb = el('label'); lb.appendChild(el('span', null, 'CEP')); const inp = document.createElement('input'); inp.setAttribute('inputmode', 'numeric'); inp.maxLength = 9; inp.placeholder = '00000-000'; inp.value = g.cep || ''; inp.setAttribute('aria-label', 'CEP para estimar o frete');
+    const info = el('span', 'cep-info', g.uf ? (g.cidade || '') + '/' + g.uf : ''); inp.oninput = () => {
+      const d = inp.value.replace(/\D/g, '').slice(0, 8); inp.value = d.length > 5 ? d.slice(0, 5) + '-' + d.slice(5) : d;
+      if (d.length === 8) fetch('https://viacep.com.br/ws/' + d + '/json/').then((r) => r.json()).then((j) => { if (j && !j.erro) { salvarGaragem({ cep: d, uf: j.uf, cidade: j.localidade }); info.textContent = j.localidade + '/' + j.uf; track('c3d_garagem', { veiculo: c.id, cep: d.slice(0, 3) }); refrescarPainel(); } else info.textContent = 'CEP não encontrado'; }).catch(() => { info.textContent = 'Não foi possível consultar o CEP'; });
+    };
+    lb.appendChild(inp); lb.appendChild(info); b.appendChild(lb);
+  }
+}
 
 function montarMarcas() {
   const box = $('c3d-marcas'); box.textContent = '';
@@ -255,6 +318,7 @@ function marcarAtivos() {
 function abrir(c) {
   const trocouMarca = !atual || atual.brand !== c.brand;
   desfazerExplosao(); atual = c; zonaAtual = null; seq++; irGaveta('peek');
+  { const gg = lerGaragem(); if (gg.v !== c.id) salvarGaragem({ v: c.id, ano: null, motor: '' }); limparMemoContagem(); }
   if (trocouMarca) montarModelos(c.brand);
   marcarAtivos();
   $('c3d-marca-nome').textContent = c.brand; $('c3d-modelo-nome').textContent = c.model;
@@ -277,8 +341,8 @@ function abrir(c) {
   track('c3d_carro', { carro: c.id, marca: c.brand, modelo: c.model });
 }
 function mostrarGaragem() {
-  const g = $('c3d-garagem'); if (!atual) { g.hidden = true; return; }
-  $('c3d-garagem-nome').textContent = atual.brand + ' ' + atual.model + (ano ? ' · ' + ano : ''); g.hidden = false;
+  const g = $('c3d-garagem'); if (g) g.hidden = true; /* a barra "Meu veículo" substitui a antiga garagem */
+  desenharGaragem();
 }
 
 function montarCores() {
@@ -1187,7 +1251,48 @@ function esconderMotor() {
   if (antigo) setTimeout(() => { try { antigo.destruir(); } catch (er) {} }, 900); /* destrói depois do fade de saída */
 }
 /* diagnóstico por sintoma: abre o modelo certo e destaca as peças suspeitas */
+function perguntaDiag(sint) {
+  emDiag = true; emGuia = false; mostrarBusca(false);
+  zonaAtual = sint.modelo; marcarZona(sint.modelo); $('c3d-dica').classList.add('off'); sincronizarUrl(sint.modelo);
+  track('c3d_diagnostico', { carro: atual.id, sintoma: sint.id });
+  selMotor = null; mostrarMotor(sint.modelo); irGaveta('meio'); seq++;
+  $('c3d-voltar').hidden = false; rotuloVoltar('Início'); $('c3d-ph-tag').textContent = 'Diagnóstico por sintoma'; $('c3d-ph-tit').textContent = sint.nome; entradaTitulo();
+  $('c3d-ph-sub').textContent = sint.pergunta.texto;
+  const box = $('c3d-pc'); box.textContent = ''; const l = el('div', 'c3d-mods');
+  sint.pergunta.opcoes.forEach((op) => { const b = el('button'); b.type = 'button'; b.appendChild(el('span', null, op.r)); b.onclick = () => diagnosticar(Object.assign({}, sint, { pergunta: null, suspeitos: op.suspeitos, texto: op.texto || sint.texto })); l.appendChild(b); });
+  const nb = el('button'); nb.type = 'button'; nb.appendChild(el('span', null, 'Não sei dizer')); nb.onclick = () => diagnosticar(Object.assign({}, sint, { pergunta: null })); l.appendChild(nb);
+  box.appendChild(l);
+  $('c3d-ver').hidden = true; const vm = $('c3d-ver-modelo'); vm.hidden = false; vm.href = urlBusca(atual.brand + ' ' + atual.model); vm.textContent = 'Todas as peças do ' + atual.model;
+}
+let emGuia = false, guiaZ = null, guiaPasso = 0;
+function botaoGuia(z) {
+  const g = guiaChave(z); if (!g) return null;
+  const b = el('button', 'c3d-btn sec', 'Como instalar (passo a passo 3D)'); b.type = 'button'; b.style.cssText = 'margin:10px 0 0;width:100%;border:0;cursor:pointer;font-family:inherit';
+  b.onclick = () => abrirGuia(z, 0); return b;
+}
+function abrirGuia(z, i) {
+  const k = guiaChave(z); if (!k) return; const gd = GUIAS[k], n = gd.passos.length; i = Math.max(0, Math.min(n - 1, i));
+  const primeira = !(emGuia && guiaZ === z); emGuia = true; guiaZ = z; guiaPasso = i; emDiag = false; seq++;
+  const mq = ZONAS[z].maq || z; zonaAtual = mq; mostrarBusca(false); mostrarMotor(mq);
+  const pst = gd.passos[i]; selMotor = pst.ver && pst.ver.length ? pst.ver : null; sincronizarMotor(); if (motor) motor.explodir(pst.abrir !== false && (pst.abrir === true || motor.estaExpandido()));
+  if (primeira) track('c3d_guia', { parte: z, carro: atual && atual.id });
+  $('c3d-voltar').hidden = false; rotuloVoltar(ZONAS[z].nome); $('c3d-ph-tag').textContent = 'Como instalar \u00b7 ' + atual.model; $('c3d-ph-tit').textContent = gd.titulo; entradaTitulo();
+  $('c3d-ph-sub').textContent = 'Passo ' + (i + 1) + ' de ' + n;
+  const box = $('c3d-pc'); box.textContent = '';
+  const meta = el('div', 'c3d-guia-meta'); [['Tempo', gd.tempo], ['Dificuldade', gd.nivel]].forEach((m) => { const c = el('span'); c.appendChild(el('small', null, m[0])); c.appendChild(el('b', null, m[1])); meta.appendChild(c); }); box.appendChild(meta);
+  const bar = el('div', 'c3d-guia-bar'); bar.appendChild(el('i')); bar.firstChild.style.width = ((i + 1) / n * 100) + '%'; box.appendChild(bar);
+  const c = el('div', 'c3d-guia-passo'); c.appendChild(el('b', null, (i + 1) + '. ' + pst.t)); c.appendChild(el('p', null, pst.d)); box.appendChild(c);
+  const nav = el('div', 'c3d-guia-nav');
+  const ant = el('button', 'c3d-btn sec', 'Anterior'); ant.type = 'button'; ant.disabled = i === 0; ant.onclick = () => abrirGuia(z, i - 1);
+  const prox = el('button', 'c3d-btn', i === n - 1 ? 'Concluir' : 'Próximo passo'); prox.type = 'button'; prox.onclick = () => { if (i === n - 1) { emGuia = false; escolher(z, true); } else abrirGuia(z, i + 1); };
+  nav.appendChild(ant); nav.appendChild(prox); box.appendChild(nav);
+  const fr = el('div', 'c3d-guia-ferr'); fr.appendChild(el('small', null, 'Ferramentas e materiais')); fr.appendChild(el('p', null, gd.ferr.join(' \u00b7 '))); box.appendChild(fr);
+  box.appendChild(el('p', 'c3d-guia-aviso', 'Orientação geral. Siga o manual do seu veículo, use equipamentos de segurança e procure um profissional se tiver dúvida.'));
+  const lista = el('ol', 'c3d-guia-lista'); gd.passos.forEach((x, j) => { const li = el('li', j === i ? 'on' : ''); const b = el('button', null, x.t); b.type = 'button'; b.onclick = () => abrirGuia(z, j); li.appendChild(b); lista.appendChild(li); }); box.appendChild(lista);
+  $('c3d-ver').hidden = true; $('c3d-ver-modelo').hidden = true;
+}
 function diagnosticar(sint) {
+  if (sint.pergunta) { perguntaDiag(sint); return; }
   zonaAtual = sint.modelo; marcarZona(sint.modelo); $('c3d-dica').classList.add('off'); sincronizarUrl(sint.modelo);
   track('c3d_diagnostico', { carro: atual.id, sintoma: sint.id });
   selMotor = sint.suspeitos; mostrarMotor(sint.modelo); irGaveta('meio'); seq++;
@@ -1203,7 +1308,7 @@ function diagnosticar(sint) {
 function escolher(z, mover) {
   if (REDIR_CARRO[z]) z = REDIR_CARRO[z];
   else if (!ZONAS[z] || !ZONAS[z].maq) { avisar('Esta parte ainda não tem modelo 3D.'); return; }
-  selMotor = null; emDiag = false;
+  selMotor = null; emDiag = false; emGuia = false;
   zonaAtual = z; marcarZona(z); $('c3d-dica').classList.add('off'); sincronizarUrl(z); track('c3d_parte', { carro: atual.id, parte: z, origem: mover ? 'lista' : 'clique3d' });
   const Z = ZONAS[z];
   if (Z.maq) mostrarMotor(Z.maq); else esconderMotor();
@@ -1237,24 +1342,31 @@ function indiceBusca() {
   });
   return idxBusca;
 }
+let tBuscaEv = 0;
 function renderBuscaZona(q) {
   const box = $('c3d-pc'), termo = semAcento(String(q || '').toLowerCase().trim());
   if (termo.length < 2) { if (buscaAtiva) { buscaAtiva = false; if (zonaAtual && !emDiag) mostrarPecas(zonaAtual); else painelInicial(sistemaAtual); } return; }
   buscaAtiva = true; seq++;
   const ws = termo.split(/\s+/);
-  const res = indiceBusca().filter((i) => ws.every((w) => i.t.indexOf(w) >= 0)).sort((a, b) => (b.prin - a.prin) || (a.nome.length - b.nome.length)).slice(0, 12);
+  const res = indiceBusca().filter((i) => ws.every((w) => i.t.indexOf(w) >= 0)).sort((a, b) => (b.prin - a.prin) || (a.nome.length - b.nome.length)).slice(0, 10);
+  const prods = CAT ? CAT.produtos.filter((pr) => ws.every((w) => semAcento((pr.nome + ' ' + (pr.sku || '') + ' ' + (pr.oem || []).join(' ')).toLowerCase()).indexOf(w) >= 0)).slice(0, 6).map((pr) => { const sc = statusCompat(pr); return Object.assign({}, pr, { img: pr.img || pr.imagem || '', preco: fmtPreco(pr.preco), preco_de: fmtPreco(pr.preco_de), _st: sc.st, _msg: sc.msg }); }) : [];
+  clearTimeout(tBuscaEv); tBuscaEv = setTimeout(() => track('c3d_busca_zona', { termo: termo, resultados: res.length + prods.length, carro: atual && atual.id }), 900);
   box.textContent = '';
-  if (!res.length) {
-    const v = el('div', 'c3d-vazio'); v.appendChild(el('strong', null, 'Nenhuma peça com esse nome')); v.appendChild(document.createTextNode('Tente outra palavra ou busque direto na loja.'));
-    const a = el('a', 'c3d-btn sec', 'Buscar \u201c' + q + '\u201d na loja'); a.href = urlBusca(q); a.style.marginTop = '12px'; v.appendChild(a); box.appendChild(v); return;
+  if (!res.length && !prods.length) {
+    const v = el('div', 'c3d-vazio'); v.appendChild(el('strong', null, 'Nenhuma peça com esse nome')); v.appendChild(document.createTextNode('Tente outra palavra, ou peça um orçamento: avisamos quando tivermos.'));
+    const a = el('button', 'c3d-btn sec', 'Pedir orçamento desta peça'); a.type = 'button'; a.style.cssText = 'margin-top:12px;width:100%;border:0;cursor:pointer;font-family:inherit'; a.onclick = () => abrirLead('orcamento', { peca: q }); v.appendChild(a);
+    const b = el('a', 'c3d-btn sec', 'Buscar \u201c' + q + '\u201d na loja'); b.href = urlBusca(q); b.style.marginTop = '8px'; v.appendChild(b); box.appendChild(v); return;
   }
-  const l = el('div', 'c3d-mods');
-  res.forEach((i) => {
-    const b = el('button'); b.type = 'button'; const t = el('span'); t.appendChild(el('b', null, i.nome)); t.appendChild(el('small', null, i.caminho)); b.appendChild(t);
-    const n = CAT ? contagemZona(i.k) : null; if (n != null) b.appendChild(el('em', n ? 'tem' : '', n ? n + (n === 1 ? ' produto' : ' produtos') : 'sem produtos'));
-    b.onclick = () => { $('c3d-bz-in').value = ''; buscaAtiva = false; escolher(i.k, true); }; l.appendChild(b);
-  });
-  box.appendChild(l);
+  if (res.length) {
+    const l = el('div', 'c3d-mods');
+    res.forEach((i) => {
+      const b = el('button'); b.type = 'button'; const t = el('span'); t.appendChild(el('b', null, i.nome)); t.appendChild(el('small', null, i.caminho)); b.appendChild(t);
+      const n = CAT ? contagemZona(i.k) : null; if (n != null) b.appendChild(el('em', n ? 'tem' : '', n ? n + (n === 1 ? ' produto' : ' produtos') : 'sem produtos'));
+      b.onclick = () => { $('c3d-bz-in').value = ''; buscaAtiva = false; escolher(i.k, true); }; l.appendChild(b);
+    });
+    box.appendChild(l);
+  }
+  if (prods.length) { box.appendChild(el('div', 'c3d-sec-t', 'Produtos')); const ul = el('ul', 'c3d-lista'); montarItens(ul, prods, 'busca', 'busca'); box.appendChild(ul); }
 }
 /* início: escolha do sistema; com sisId: modelos do sistema */
 function painelInicial(sisId) {
@@ -1358,15 +1470,113 @@ const REDIR_CARRO = { capo: 'motor', 'parachoque-d': 'radiador', parabrisa: 'lim
 let emDiag = false, sistemaAtual = null, buscaAtiva = false;
 /* Diagnóstico por sintoma: leva ao modelo 3D certo e destaca as peças suspeitas */
 const SINTOMAS = [
-  { id: 'esquentando', nome: 'Motor esquentando', modelo: 'arrefecimento', suspeitos: ['termostato-arref', 'bomba-agua-arref', 'ventoinha-arref', 'radiador-arref', 'reservatorio-arref', 'mangueira-arref'], texto: "O superaquecimento costuma vir do termostato preso, da bomba d'água, da ventoinha que não liga ou de vazamento no radiador e nas mangueiras." },
-  { id: 'oleo', nome: 'Luz do óleo acesa', modelo: 'motor-v6', suspeitos: ['sensor-oleo-v6', 'resfriador-v6', 'carter-v6', 'tampa-valvulas'], texto: 'Pressão baixa pode ser o sensor com defeito, vazamento no resfriador de óleo, no cárter ou na tampa de válvulas.' },
-  { id: 'falha-acel', nome: 'Falha na aceleração', modelo: 'motor-v6', suspeitos: ['corpo-borboleta', 'bobina-v6', 'coletor-admissao'], texto: 'Falhas e luz da injeção costumam envolver o corpo de borboleta sujo, bobinas de ignição cansadas ou vazamento no coletor de admissão.' },
-  { id: 'barulho-susp', nome: 'Barulho na suspensão', modelo: 'suspensao', suspeitos: ['amortecedor', 'coxim', 'bieleta', 'pivo', 'bandeja', 'batente'], texto: 'Batidas e estalos em buracos costumam vir de coxins, bieletas, pivôs, buchas da bandeja ou do amortecedor vencido.' },
-  { id: 'freio', nome: 'Freio vibrando ou rangendo', modelo: 'freios', suspeitos: ['disco-freio', 'pastilha', 'pinca'], texto: 'Vibração no pedal indica disco empenado; rangido, pastilhas gastas; carro puxando para um lado, pinça travada.' },
+  { id: 'esquentando', nome: 'Motor esquentando', modelo: 'arrefecimento', suspeitos: ['termostato-arref', 'bomba-agua-arref', 'ventoinha-arref', 'radiador-arref', 'reservatorio-arref', 'mangueira-arref'], texto: "O superaquecimento costuma vir do termostato preso, da bomba d'água, da ventoinha que não liga ou de vazamento no radiador e nas mangueiras.",
+    pergunta: { texto: 'Quando o ponteiro de temperatura sobe?', opcoes: [
+      { r: 'Aos poucos, no trânsito parado', suspeitos: ['ventoinha-arref', 'radiador-arref', 'reservatorio-arref'], texto: 'Esquentar parado e esfriar andando aponta a ventoinha que não liga ou o radiador entupido.' },
+      { r: 'Rápido, até em estrada', suspeitos: ['termostato-arref', 'bomba-agua-arref'], texto: 'Superaquecimento rápido costuma ser termostato preso fechado ou bomba d\'água com a hélice gasta.' },
+      { r: 'Estou perdendo líquido', suspeitos: ['mangueira-arref', 'radiador-arref', 'reservatorio-arref', 'bomba-agua-arref'], texto: 'Vazamento: confira mangueiras, radiador, reservatório e o retentor da bomba d\'água.' }] } },
+  { id: 'oleo', nome: 'Luz do óleo acesa', modelo: 'motor-v6', suspeitos: ['sensor-oleo-v6', 'resfriador-v6', 'carter-v6', 'tampa-valvulas'], texto: 'Pressão baixa pode ser o sensor com defeito, vazamento no resfriador de óleo, no cárter ou na tampa de válvulas. Com a luz acesa, não rode: pode danificar o motor.',
+    pergunta: { texto: 'Como a luz do óleo se comporta?', opcoes: [
+      { r: 'Acende só em marcha lenta', suspeitos: ['sensor-oleo-v6', 'resfriador-v6'], texto: 'Se apaga ao acelerar, desconfie do sensor de pressão ou de pressão baixa por desgaste.' },
+      { r: 'Fica acesa o tempo todo', suspeitos: ['carter-v6', 'resfriador-v6', 'sensor-oleo-v6'], texto: 'Pare o carro e confira o nível. Pode ser falta de óleo, bomba ou vazamento.' },
+      { r: 'Vejo óleo vazando', suspeitos: ['carter-v6', 'tampa-valvulas', 'resfriador-v6'], texto: 'Vazamento comum em junta do cárter, tampa de válvulas e resfriador de óleo.' }] } },
+  { id: 'falha-acel', nome: 'Falha na aceleração', modelo: 'motor-v6', suspeitos: ['corpo-borboleta', 'bobina-v6', 'coletor-admissao'], texto: 'Falhas e luz da injeção costumam envolver o corpo de borboleta sujo, bobinas de ignição cansadas ou vazamento no coletor de admissão.',
+    pergunta: { texto: 'Como o carro falha?', opcoes: [
+      { r: 'Marcha lenta irregular', suspeitos: ['corpo-borboleta', 'coletor-admissao'], texto: 'Borboleta suja ou entrada falsa de ar no coletor desregulam a marcha lenta.' },
+      { r: 'Perde força ao acelerar forte', suspeitos: ['bobina-v6', 'coletor-admissao', 'corpo-borboleta'], texto: 'Bobinas fracas falham sob carga. Vale revisar também velas.' },
+      { r: 'Luz da injeção acesa', suspeitos: ['corpo-borboleta', 'bobina-v6', 'coletor-admissao'], texto: 'Faça a leitura do scanner. Os códigos apontam o sistema com defeito.' }] } },
+  { id: 'barulho-susp', nome: 'Barulho na suspensão', modelo: 'suspensao', suspeitos: ['amortecedor', 'coxim', 'bieleta', 'pivo', 'bandeja', 'batente'], texto: 'Batidas e estalos em buracos costumam vir de coxins, bieletas, pivôs, buchas da bandeja ou do amortecedor vencido.',
+    pergunta: { texto: 'Quando o barulho aparece?', opcoes: [
+      { r: 'Em buracos e lombadas', suspeitos: ['amortecedor', 'coxim', 'batente', 'bieleta'], texto: 'Batida seca em impacto: amortecedor, coxim, batente ou bieleta soltos.' },
+      { r: 'Ao virar o volante', suspeitos: ['pivo', 'bandeja', 'coxim'], texto: 'Estalo ao esterçar: pivô, bucha da bandeja ou coxim do amortecedor.' },
+      { r: 'Constante ou estalo leve', suspeitos: ['bandeja', 'estabilizadora', 'bieleta', 'pivo'], texto: 'Folga em buchas e articulações. Faça uma inspeção com o carro suspenso.' }] } },
+  { id: 'freio', nome: 'Freio vibrando ou rangendo', modelo: 'freios', suspeitos: ['disco-freio', 'pastilha', 'pinca'], texto: 'Vibração no pedal indica disco empenado; rangido, pastilhas gastas; carro puxando para um lado, pinça travada.',
+    pergunta: { texto: 'O que você sente ao frear?', opcoes: [
+      { r: 'O pedal vibra', suspeitos: ['disco-freio'], texto: 'Vibração no pedal é típica de disco empenado ou com espessura irregular.' },
+      { r: 'Rangido ou chiado', suspeitos: ['pastilha', 'disco-freio'], texto: 'Pastilhas gastas ou vitrificadas. Troque o jogo do mesmo eixo.' },
+      { r: 'O carro puxa para um lado', suspeitos: ['pinca', 'flexivel-freio'], texto: 'Pinça travada ou flexível de freio estrangulado em um dos lados.' }] } },
   { id: 'farol', nome: 'Farol fraco ou queimado', modelo: 'farol', suspeitos: ['lampada-farol', 'lente-farol', 'refletor'], texto: 'Além da lâmpada, lente opaca e refletor queimado reduzem muito a luz.' },
-  { id: 'partida', nome: 'Não pega ou estala na partida', modelo: 'partida', suspeitos: ['solenoide', 'bendix', 'escovas-partida', 'induzido'], texto: 'Estalo sem girar costuma ser solenoide ou bendix; giro fraco, escovas gastas ou induzido com defeito.' },
+  { id: 'partida', nome: 'Não pega ou estala na partida', modelo: 'partida', suspeitos: ['solenoide', 'bendix', 'escovas-partida', 'induzido'], texto: 'Estalo sem girar costuma ser solenoide ou bendix; giro fraco, escovas gastas ou induzido com defeito. Teste a bateria antes.' },
+  { id: 'bateria-desc', nome: 'Bateria descarregando', modelo: 'alternador', suspeitos: ['regulador', 'retificador', 'escovas', 'polia-alt', 'estator'], texto: 'Bateria nova que descarrega e luz da bateria acesa apontam para o alternador: regulador de voltagem, ponte retificadora, escovas ou correia/polia.' },
+  { id: 'turbo-fraco', nome: 'Carro sem força (turbo)', modelo: 'turbo', suspeitos: ['turbina', 'compressor', 'cartucho', 'wastegate'], texto: 'Perda de força, fumaça e assobio apontam para folga no eixo do turbo, carcaça trincada ou wastegate emperrada.' },
+  { id: 'embreagem', nome: 'Embreagem patinando ou pedal duro', modelo: 'embreagem', suspeitos: ['disco-embreagem', 'plato', 'rolamento-embreagem', 'garfo-embreagem'], texto: 'Rotação sobe e o carro não acompanha: disco gasto ou platô fraco. Pedal duro ou ruidoso: rolamento ou garfo.' },
+  { id: 'cambio', nome: 'Trancos ou ruído ao trocar marcha', modelo: 'cambio', suspeitos: ['sincronizador', 'garfo-cambio', 'engrenagens', 'rolamento-cambio'], texto: 'Marcha que arranha ou não entra: sincronizadores gastos. Zumbido constante: rolamentos do câmbio.' },
+  { id: 'direcao', nome: 'Direção pesada ou com folga', modelo: 'direcao', suspeitos: ['cremalheira', 'terminal-direcao', 'barra-axial', 'coifa-direcao'], texto: 'Folga no volante vem de terminais e barras axiais; vazamento de fluido, de coifas e da própria caixa.' },
+  { id: 'vibracao', nome: 'Vibração no volante', modelo: 'rodas', suspeitos: ['pneu', 'rodas', 'parafuso-roda'], texto: 'Vibração em velocidade costuma ser balanceamento, pneu deformado ou roda empenada. Confira os parafusos.' },
+  { id: 'correia', nome: 'Barulho na correia do motor', modelo: 'distribuicao', suspeitos: ['tensor', 'polia-guia', 'polia-comando', 'polia-virabrequim'], texto: 'Chiado ou batida: correia ressecada, tensor e polias com folga. Na correia dentada, troque o kit inteiro.' },
   { id: 'lift', nome: 'Quero elevar o veículo', modelo: 'lift', suspeitos: ['mola-lift', 'amortecedor-lift', 'bandeja-lift', 'coxim-lift', 'barra-track', 'pneu-lift'], texto: 'Veja como o kit lift muda altura, ângulo dos braços e o curso da suspensão. Use os controles para comparar.' }
 ];
+/* ===== Guias de instalação em 3D: orientação geral, não substitui o manual do veículo ===== */
+const GUIAS = {
+  'termostato-arref': { titulo: 'Trocar a válvula termostática', tempo: '40 a 60 min', nivel: 'Média', ferr: ['Chaves combinadas', 'Alicate de pressão', 'Recipiente para o líquido', 'Junta nova', 'Líquido de arrefecimento'], passos: [
+    { t: 'Motor frio e bateria', d: 'Espere o motor esfriar por completo (o líquido quente queima) e desconecte o terminal negativo da bateria.', ver: [] },
+    { t: 'Drene o líquido', d: 'Abra a tampa do reservatório, solte a mangueira inferior do radiador e escoe o líquido num recipiente.', ver: ['reservatorio-arref', 'mangueira-arref', 'radiador-arref'] },
+    { t: 'Solte as mangueiras', d: 'Encontre a carcaça do termostato (na mangueira superior do radiador) e solte as abraçadeiras.', ver: ['termostato-arref', 'mangueira-arref'] },
+    { t: 'Retire o termostato', d: 'Remova os parafusos da carcaça, retire o termostato velho e limpe bem a superfície de vedação.', ver: ['termostato-arref'], abrir: true },
+    { t: 'Instale o novo', d: 'Posicione o termostato no sentido correto (bulbo voltado para o motor), com junta nova, e aperte no torque do manual.', ver: ['termostato-arref'] },
+    { t: 'Reabasteça e sangre o ar', d: 'Recoloque as mangueiras, complete com o líquido indicado e ligue o motor com a tampa aberta até a ventoinha ligar, completando o nível.', ver: ['bomba-agua-arref', 'radiador-arref', 'ventoinha-arref'], abrir: false }] },
+  'bomba-agua-arref': { titulo: "Trocar a bomba d'água", tempo: '1 a 2 h', nivel: 'Média a alta', ferr: ['Jogo de chaves', 'Recipiente', 'Junta/anel novo', 'Líquido de arrefecimento'], passos: [
+    { t: 'Motor frio e bateria', d: 'Com o motor frio, desconecte o terminal negativo da bateria.', ver: [] },
+    { t: 'Drene o sistema', d: 'Abra a tampa do reservatório e escoe o líquido pela mangueira inferior.', ver: ['reservatorio-arref', 'mangueira-arref', 'radiador-arref'] },
+    { t: 'Libere o acesso', d: 'Remova a correia de acessórios (ou de distribuição, conforme o motor) e peças que cubram a bomba.', ver: ['bomba-agua-arref'], abrir: true },
+    { t: 'Retire a bomba', d: 'Solte os parafusos, retire a bomba velha e limpe a sede sem deixar resíduos de junta.', ver: ['bomba-agua-arref'] },
+    { t: 'Instale a nova', d: 'Use junta ou anel novo, aperte em cruz no torque do manual e remonte a correia com a tensão correta.', ver: ['bomba-agua-arref'] },
+    { t: 'Reabasteça e sangre', d: 'Complete com o líquido indicado, retire o ar do circuito e confira vazamentos com o motor quente.', ver: ['radiador-arref', 'ventoinha-arref', 'termostato-arref'], abrir: false }] },
+  'pastilha': { titulo: 'Trocar as pastilhas de freio', tempo: '30 a 45 min por eixo', nivel: 'Fácil a média', ferr: ['Macaco e cavaletes', 'Chave de roda', 'Chaves da pinça', 'Grampo ou alicate para recuar o êmbolo', 'Fluido DOT indicado'], passos: [
+    { t: 'Segurança primeiro', d: 'Estacione em piso firme com o freio de mão, calce as rodas e afrouxe os parafusos antes de levantar. Apoie em cavaletes: nunca só no macaco.', ver: [] },
+    { t: 'Retire a roda', d: 'Levante o eixo, retire a roda e veja o conjunto de freio.', ver: ['cubo-roda', 'disco-freio'] },
+    { t: 'Solte a pinça', d: 'Remova os parafusos-guia da pinça e apoie-a sem esticar o flexível de freio.', ver: ['pinca', 'flexivel-freio'], abrir: true },
+    { t: 'Troque as pastilhas', d: 'Retire as pastilhas gastas, limpe as guias e instale as novas com o lado de atrito voltado ao disco.', ver: ['pastilha'] },
+    { t: 'Recue o êmbolo e remonte', d: 'Recue o êmbolo com cuidado, recoloque a pinça e aperte os parafusos no torque indicado.', ver: ['pinca', 'pastilha'], abrir: false },
+    { t: 'Assente e teste', d: 'Bombeie o pedal até ficar firme, confira o nível do fluido e rode devagar nos primeiros 200 km para assentar as pastilhas.', ver: [] }] },
+  'disco-freio': { titulo: 'Trocar o disco de freio', tempo: '45 a 60 min por eixo', nivel: 'Média', ferr: ['Macaco e cavaletes', 'Chave de roda', 'Chaves da pinça e do suporte', 'Desengraxante de freio'], passos: [
+    { t: 'Segurança primeiro', d: 'Piso firme, freio de mão, calços. Afrouxe a roda antes de levantar e apoie em cavaletes.', ver: [] },
+    { t: 'Retire roda e pinça', d: 'Solte a pinça e o suporte e apoie-a sem tensionar o flexível.', ver: ['pinca', 'flexivel-freio'], abrir: true },
+    { t: 'Remova o disco velho', d: 'Retire o disco (se preso, aplique desengripante e dê pequenas batidas).', ver: ['disco-freio', 'cubo-roda'] },
+    { t: 'Limpe o cubo', d: 'Limpe a face do cubo: sujeira ou ferrugem causa vibração no disco novo.', ver: ['cubo-roda'] },
+    { t: 'Instale o disco novo', d: 'Limpe o disco novo com desengraxante, monte-o e recoloque suporte e pinça com pastilhas novas.', ver: ['disco-freio', 'pastilha', 'pinca'], abrir: false },
+    { t: 'Assente e teste', d: 'Bombeie o pedal, confira o fluido e evite frenagens fortes nos primeiros 200 km.', ver: [] }] },
+  'amortecedor': { titulo: 'Trocar o amortecedor', tempo: '1 a 2 h por lado', nivel: 'Média a alta', ferr: ['Macaco e cavaletes', 'Compressor de mola (obrigatório)', 'Chaves e soquetes', 'Alinhamento depois'], passos: [
+    { t: 'Segurança primeiro', d: 'Piso firme, calços e cavaletes. A mola comprimida é perigosa: use compressor de mola adequado.', ver: [] },
+    { t: 'Retire a roda e solte o amortecedor', d: 'Solte a fixação inferior na manga de eixo e as porcas superiores no coxim.', ver: ['amortecedor', 'coxim', 'manga'], abrir: true },
+    { t: 'Retire o conjunto', d: 'Baixe o conjunto mola-amortecedor e comprima a mola com o compressor antes de soltar a porca da haste.', ver: ['mola', 'amortecedor'] },
+    { t: 'Troque as peças', d: 'Instale o amortecedor novo com batente, coifa e coxim novos, se estiverem gastos.', ver: ['amortecedor', 'batente', 'coxim'] },
+    { t: 'Remonte', d: 'Monte o conjunto, aperte fixações com o carro apoiado nas rodas e no torque do manual.', ver: ['mola', 'amortecedor', 'coxim'], abrir: false },
+    { t: 'Alinhamento', d: 'Faça alinhamento e balanceamento depois da troca. Troque sempre os dois do mesmo eixo.', ver: [] }] },
+  'correia': { titulo: 'Trocar o kit de correia dentada', tempo: '2 a 4 h', nivel: 'Alta (recomendamos oficina)', ferr: ['Jogo de chaves e soquetes', 'Travas de ponto do motor', 'Torquímetro'], passos: [
+    { t: 'Leia o manual do motor', d: 'A sincronização errada pode destruir o motor. Procure um mecânico se não tiver experiência com travas de ponto.', ver: [] },
+    { t: 'Posicione o ponto', d: 'Gire o motor até o ponto morto superior do cilindro 1 e trave virabrequim e comando.', ver: ['polia-virabrequim', 'polia-comando'] },
+    { t: 'Remova a correia velha', d: 'Solte o tensor, retire a correia e confira a polia guia e a bomba d\'água.', ver: ['tensor', 'polia-guia', 'distribuicao'], abrir: true },
+    { t: 'Troque o kit', d: 'Instale correia, tensor e polia guia novos e aproveite para trocar a bomba d\'água.', ver: ['distribuicao', 'tensor', 'polia-guia', 'bomba-dagua-kit'] },
+    { t: 'Tensione e confira', d: 'Aplique a tensão indicada e gire o motor duas voltas à mão, conferindo se as marcas coincidem.', ver: ['polia-comando', 'polia-virabrequim'], abrir: false }] },
+  'bateria': { titulo: 'Trocar a bateria', tempo: '15 a 20 min', nivel: 'Fácil', ferr: ['Chave 10 mm (ou a do terminal)', 'Luvas e óculos', 'Graxa para terminais'], passos: [
+    { t: 'Desligue tudo', d: 'Com o carro desligado e as luzes apagadas, abra o capô e localize a bateria.', ver: [] },
+    { t: 'Solte o negativo primeiro', d: 'Desconecte o terminal negativo (preto) e depois o positivo (vermelho).', ver: ['terminal-bateria'], abrir: true },
+    { t: 'Retire a bateria velha', d: 'Solte a presilha de fixação e retire a bateria pela alça (é pesada).', ver: ['alca-bateria', 'bateria'] },
+    { t: 'Instale a nova', d: 'Posicione a bateria nova no mesmo sentido e fixe bem com a presilha.', ver: ['bateria', 'placas-bateria'] },
+    { t: 'Conecte: positivo primeiro', d: 'Ligue o terminal positivo e depois o negativo; aplique graxa nos terminais. Descarte a bateria velha em ponto de coleta.', ver: ['terminal-bateria'], abrir: false }] },
+  'lampada-farol': { titulo: 'Trocar a lâmpada do farol', tempo: '10 a 20 min', nivel: 'Fácil', ferr: ['Luvas limpas', 'Lâmpada do modelo correto'], passos: [
+    { t: 'Desligue as luzes', d: 'Desligue o carro e as luzes e deixe a lâmpada esfriar.', ver: [] },
+    { t: 'Acesse a traseira do farol', d: 'Abra o capô e localize a tampa de proteção atrás do farol.', ver: ['farol'] },
+    { t: 'Retire a lâmpada', d: 'Desconecte o plugue, solte a presilha e retire a lâmpada queimada.', ver: ['lampada-farol'], abrir: true },
+    { t: 'Instale a nova', d: 'Não toque no vidro da lâmpada com os dedos (use luvas). Encaixe, prenda e reconecte.', ver: ['lampada-farol', 'refletor'] },
+    { t: 'Teste', d: 'Ligue as luzes e confira o funcionamento. Peça o ajuste de altura do facho se necessário.', ver: ['lente-farol'], abrir: false }] },
+  'vela': { titulo: 'Trocar as velas', tempo: '30 a 60 min', nivel: 'Média', ferr: ['Soquete de vela', 'Torquímetro', 'Calibre de folga'], passos: [
+    { t: 'Motor frio', d: 'Espere o motor esfriar e limpe ao redor das velas para não cair sujeira nos cilindros.', ver: [] },
+    { t: 'Retire bobinas ou cabos', d: 'Desconecte cada bobina ou cabo, um por vez, para não trocar a ordem.', ver: ['vela'], abrir: true },
+    { t: 'Remova as velas', d: 'Solte as velas com o soquete correto. Observe a cor dos eletrodos: indica a saúde do motor.', ver: ['vela'] },
+    { t: 'Confira a folga e instale', d: 'Confira a folga indicada no manual e instale as novas à mão antes de apertar no torque.', ver: ['vela'] },
+    { t: 'Reconecte', d: 'Reconecte bobinas ou cabos na ordem correta e dê a partida.', ver: [], abrir: false }] },
+  'disco-embreagem': { titulo: 'Trocar o kit de embreagem', tempo: '4 a 8 h', nivel: 'Alta (recomendamos oficina)', ferr: ['Elevador ou cavaletes altos', 'Macaco de câmbio', 'Ferramenta de centragem'], passos: [
+    { t: 'Retire o câmbio', d: 'Serviço de oficina: é preciso desmontar o câmbio. Apoie o conjunto com segurança.', ver: [] },
+    { t: 'Remova platô e disco', d: 'Solte o platô em cruz e retire o disco gasto.', ver: ['plato', 'disco-embreagem'], abrir: true },
+    { t: 'Confira o volante', d: 'Verifique o volante do motor: se estiver trincado ou com superfície irregular, retifique ou troque.', ver: ['volante-emb'] },
+    { t: 'Centralize o disco', d: 'Instale o disco novo com a ferramenta de centragem e aperte o platô em cruz.', ver: ['disco-embreagem', 'plato'] },
+    { t: 'Troque o rolamento', d: 'Substitua o rolamento de embreagem, lubrifique o garfo e remonte o câmbio.', ver: ['rolamento-embreagem', 'garfo-embreagem'], abrir: false }] }
+};
+const GUIA_ALIAS = { pinca: 'pastilha', 'flexivel-freio': 'disco-freio', 'cubo-roda': 'disco-freio', freios: 'pastilha', arrefecimento: 'termostato-arref', 'bomba-agua-v6': 'bomba-agua-arref', 'bomba-agua': 'bomba-agua-arref', tensor: 'correia', 'polia-guia': 'correia', distribuicao: 'correia', 'bomba-dagua-kit': 'correia', 'polia-comando': 'correia', 'polia-virabrequim': 'correia', 'terminal-bateria': 'bateria', 'placas-bateria': 'bateria', 'alca-bateria': 'bateria', 'lente-farol': 'lampada-farol', 'moldura-farol': 'lampada-farol', refletor: 'lampada-farol', farol: 'lampada-farol', plato: 'disco-embreagem', 'rolamento-embreagem': 'disco-embreagem', 'garfo-embreagem': 'disco-embreagem', embreagem: 'disco-embreagem', coxim: 'amortecedor', batente: 'amortecedor', mola: 'amortecedor', suspensao: 'amortecedor' };
+const guiaChave = (z) => (GUIAS[z] ? z : GUIA_ALIAS[z] || null);
+
 ZONAS.motor.maq = 'motor'; PECAS_MOTOR.forEach((k) => { ZONAS[k].maq = 'motor'; });
 const GRUPO_CHAVES = { motor: PECAS_MOTOR };
 Object.keys(GRUPOS).forEach((tipo) => {
@@ -1470,6 +1680,7 @@ async function buscarPlaca() {
 }
 
 async function mostrarPecas(z) {
+  if (!window.__mantemIncomp) mostrarIncomp = false;
   const Z = ZONAS[z], meu = ++seq;
   $('c3d-voltar').hidden = false; rotuloVoltar(rotuloAnterior(z)); mostrarBusca(false);
   $('c3d-ph-tag').textContent = trilha(z);
@@ -1484,7 +1695,8 @@ async function mostrarPecas(z) {
   const vm = $('c3d-ver-modelo'); vm.hidden = false; vm.href = urlBusca(atual.brand + ' ' + atual.model); vm.textContent = 'Todas as peças do ' + atual.model;
   const dv = $('c3d-duvida'); if (WHATSAPP) { dv.hidden = false; dv.href = 'https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent('Olá! Preciso de ' + Z.nome.toLowerCase() + ' para ' + atual.brand + ' ' + atual.model + (ano ? ' ' + ano : '') + '.'); }
   let prods = [], tipo = '', falhou = false;
-  if (CAT) { prods = produtosDaZona(z); if (prods.length) tipo = 'catalogo'; }
+  let nOcultos = 0;
+  if (CAT) { prods = produtosDaZona(z); nOcultos = prods.ocultos || 0; if (prods.length) tipo = 'catalogo'; }
   if (!prods.length) {
     try {
       for (let i = 0; i < qs.length; i++) { prods = await buscar(qs[i][0]); if (meu !== seq) return; if (prods.length) { tipo = qs[i][1]; break; } }
@@ -1498,18 +1710,25 @@ async function mostrarPecas(z) {
   }
   if (!prods.length) {
     const v = el('div', 'c3d-vazio'); v.appendChild(el('strong', null, 'Ainda não temos esta peça')); v.appendChild(document.createTextNode('Não encontramos ' + Z.nome.toLowerCase() + ' para o ' + atual.model + ' na loja. Veja produtos semelhantes ou fale com a gente.'));
+    if (nOcultos) { const g0 = lerGaragem(); v.firstChild.textContent = 'Nenhum produto serve no seu veículo'; const bo = el('button', 'c3d-ocultos', nOcultos + (nOcultos > 1 ? ' produtos não servem' : ' produto não serve') + (g0.ano ? ' no ' + atual.model + ' ' + g0.ano : '') + '. Mostrar mesmo assim'); bo.type = 'button'; bo.onclick = () => { mostrarIncomp = true; window.__mantemIncomp = true; mostrarPecas(z); window.__mantemIncomp = false; }; v.appendChild(bo); }
     v.appendChild(botaoSemelhantes(z));
+    v.appendChild(botaoLead('orcamento', { parte: z, peca: Z.nome }));
+    { const bg = botaoGuia(z); if (bg) v.appendChild(bg); }
     if (WHATSAPP) { const w = el('a', 'c3d-btn c3d-zap', 'Pedir esta peça no WhatsApp'); w.style.marginTop = '14px'; w.target = '_blank'; w.rel = 'noopener'; w.href = 'https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent('Olá! Procuro ' + Z.nome.toLowerCase() + ' para ' + atual.brand + ' ' + atual.model + (ano ? ' ' + ano : '') + '.'); v.appendChild(w); }
     box.appendChild(v); relacionadas(z, box);
     $('c3d-ph-sub').textContent = '0 produtos'; track('c3d_sem_resultado', { carro: atual.id, parte: z, ano: ano || '' }); return;
   }
   track('c3d_resultados', { carro: atual.id, parte: z, quantidade: prods.length, nivel: tipo });
-  $('c3d-ph-sub').textContent = prods.length + (prods.length > 1 ? ' produtos' : ' produto') + (tipo === 'catalogo' ? ' para o ' + atual.model : tipo === 'modelo' ? (prods.length > 1 ? ' compatíveis' : ' compatível') + ' com o ' + atual.model : tipo === 'marca' ? ' da marca ' + atual.brand + ' (confira a compatibilidade)' : ' relacionados (confira a compatibilidade)');
+  $('c3d-ph-sub').textContent = prods.length + (prods.length > 1 ? ' produtos' : ' produto') + (tipo === 'catalogo' ? ' para o ' + atual.model + (lerGaragem().ano ? ' ' + lerGaragem().ano : '') : tipo === 'modelo' ? (prods.length > 1 ? ' compatíveis' : ' compatível') + ' com o ' + atual.model : tipo === 'marca' ? ' da marca ' + atual.brand + ' (confira a compatibilidade)' : ' relacionados (confira a compatibilidade)');
   const ul = el('ul', 'c3d-lista');
   montarItens(ul, prods, z, tipo);
   box.appendChild(ul);
   entradaLista(ul);
+  if (nOcultos) { const bo = el('button', 'c3d-ocultos', nOcultos + (nOcultos > 1 ? ' produtos não servem' : ' produto não serve') + ' no seu veículo. Mostrar'); bo.type = 'button'; bo.onclick = () => { mostrarIncomp = true; window.__mantemIncomp = true; mostrarPecas(z); window.__mantemIncomp = false; }; box.appendChild(bo); }
   box.appendChild(botaoSemelhantes(z));
+  { const bg = botaoGuia(z); if (bg) box.appendChild(bg); }
+  { const bo = botaoOficina(z); if (bo) box.appendChild(bo); }
+  blocoConjunto(z, box, prods);
   relacionadas(z, box);
 }
 
@@ -1528,20 +1747,24 @@ function montarItens(ul, prods, z, tipo) {
     const bd = el('div', 'c3d-sel-bd');
     const a1 = numPreco(p.preco), a0 = numPreco(p.preco_de);
     if (a1 && a0 && a0 > a1) bd.appendChild(el('span', 'c3d-bd off', '-' + Math.round((1 - a1 / a0) * 100) + '%'));
-    if (p._c === 2) bd.appendChild(el('span', 'c3d-bd ok', 'Serve no ' + atual.model + (p.anos && p.anos.length ? ' \u00b7 ' + p.anos[0] + (p.anos[1] && p.anos[1] !== p.anos[0] ? '\u2013' + p.anos[1] : '') : '')));
-    else if (p._c === 1) bd.appendChild(el('span', 'c3d-bd ok', 'Universal'));
+    if (p._st === 'serve' || p._st === 'universal') bd.appendChild(el('span', 'c3d-bd ok', '\u2714 ' + p._msg));
+    else if (p._st === 'nao') bd.appendChild(el('span', 'c3d-bd nao', '\u2716 ' + p._msg));
+    else if (p._st === 'confira') bd.appendChild(el('span', 'c3d-bd chk', p._msg));
     else if (tipo === 'semelhante') bd.appendChild(el('span', 'c3d-bd chk', 'Semelhante \u00b7 confira a compatibilidade'));
-    else if (p._c === 0 && tipo === 'catalogo') bd.appendChild(el('span', 'c3d-bd chk', 'Confira a compatibilidade'));
     if (ano) { const fx = faixaAno(p.nome); const serve = fx && +ano >= fx[0] && +ano <= fx[1]; bd.appendChild(el('span', 'c3d-bd ' + (serve ? 'ok' : 'chk'), serve ? 'Serve no ' + ano : 'Confira o ano')); }
     if (bd.children.length) tx.appendChild(bd);
     if (p.preco) { const pr = el('div', 'c3d-preco'); if (p.preco_de) pr.appendChild(el('s', null, p.preco_de)); pr.appendChild(document.createTextNode(p.preco)); tx.appendChild(pr); }
+    if (p.oem && p.oem.length) tx.appendChild(el('div', 'c3d-oem', 'OEM ' + p.oem.slice(0, 2).join(' \u00b7 ')));
+    { const fr = freteDe(p); if (fr) tx.appendChild(el('div', 'c3d-frete', fr)); }
     a.appendChild(tx); li.appendChild(a);
     if (temImg) { const zb = el('button', 'c3d-zoom'); zb.type = 'button'; zb.title = 'Ampliar foto'; zb.setAttribute('aria-label', 'Ampliar foto de ' + p.nome); zb.innerHTML = '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M11 8v6M8 11h6"/></svg>'; zb.onclick = () => abrirLightbox(ft.dataset.src || p.img, p.nome); li.appendChild(zb); }
     const acoes = el('div', 'c3d-acoes');
     const pid = (p.url.match(/-p(\d+)(?:[\/?#]|$)/) || [])[1];
     const compravel = CFG.plataforma === 'iset' && a1 && a1 > 0 && pid;
-    if (compravel) { const cb = el('button', 'c3d-add', 'Adicionar ao carrinho'); cb.type = 'button'; cb.onclick = () => adicionarCarrinho(pid, cb, p); acoes.appendChild(cb); }
+    if (p.estoque === 0 || p.estoque === '0') { const av = el('button', 'c3d-add sec', 'Avise-me quando chegar'); av.type = 'button'; av.onclick = () => abrirLead('estoque', { produto: p, parte: z }); acoes.appendChild(av); }
+    else if (compravel) { const cb = el('button', 'c3d-add', 'Adicionar ao carrinho'); cb.type = 'button'; cb.onclick = () => adicionarCarrinho(pid, cb, p); acoes.appendChild(cb); }
     else { const vb = el('a', 'c3d-add sec', 'Consultar valor'); vb.href = p.url; acoes.appendChild(vb); }
+    if (tipo !== 'busca') { const lc = el('label', 'c3d-cmp'); const ck = document.createElement('input'); ck.type = 'checkbox'; ck.checked = comparar.some((x) => x.url === p.url); ck.onchange = () => alternarComparar(p, ck); lc.appendChild(ck); lc.appendChild(el('span', null, 'Comparar')); acoes.appendChild(lc); }
     li.appendChild(acoes);
     ul.appendChild(li);
   });
@@ -1570,6 +1793,138 @@ function termosSemelhantes(z) {
   add(atual.brand + ' ' + atual.model); add(atual.model); add(atual.brand);
   return termos;
 }
+/* ===== Orçamento, aviso de estoque, oficinas, kits e comparação ===== */
+const COSTUMA = {
+  'termostato-arref': ['bomba-agua-arref', 'mangueira-arref', 'radiador-arref', 'reservatorio-arref'], 'bomba-agua-arref': ['termostato-arref', 'mangueira-arref', 'correia'], 'radiador-arref': ['mangueira-arref', 'ventoinha-arref', 'termostato-arref'],
+  'mangueira-arref': ['termostato-arref', 'radiador-arref'], 'ventoinha-arref': ['radiador-arref', 'termostato-arref'], 'reservatorio-arref': ['mangueira-arref', 'radiador-arref'],
+  'pastilha': ['disco-freio', 'flexivel-freio', 'pinca'], 'disco-freio': ['pastilha', 'flexivel-freio'], 'pinca': ['pastilha', 'flexivel-freio'], 'flexivel-freio': ['pastilha', 'disco-freio'],
+  'amortecedor': ['coxim', 'batente', 'mola', 'bieleta'], 'coxim': ['amortecedor', 'batente'], 'batente': ['amortecedor', 'coxim'], 'bandeja': ['pivo', 'bieleta', 'estabilizadora'], 'pivo': ['bandeja', 'bieleta'], 'bieleta': ['estabilizadora', 'amortecedor'],
+  'correia': ['tensor', 'polia-guia', 'bomba-dagua-kit'], 'tensor': ['correia', 'polia-guia'], 'polia-guia': ['tensor', 'correia'], 'distribuicao': ['tensor', 'polia-guia', 'bomba-dagua-kit'],
+  'vela': ['bobina-v6', 'corpo-borboleta'], 'bobina-v6': ['vela', 'corpo-borboleta'], 'cabecote': ['junta', 'valvulas', 'vela'], 'junta': ['cabecote', 'vela', 'carter'], 'carter': ['junta', 'filtro-oleo'],
+  'embreagem': ['disco-embreagem', 'plato', 'rolamento-embreagem'], 'disco-embreagem': ['plato', 'rolamento-embreagem'], 'plato': ['disco-embreagem', 'rolamento-embreagem'],
+  'alternador': ['bateria', 'polia-alt', 'regulador'], 'bateria': ['alternador', 'terminal-bateria'], 'partida': ['bateria', 'solenoide', 'bendix'],
+  'lampada-farol': ['lente-farol', 'refletor'], 'farol': ['lampada-farol', 'lente-farol'], 'mola-lift': ['amortecedor-lift', 'coxim-lift', 'bandeja-lift', 'barra-track'], 'lift': ['mola-lift', 'amortecedor-lift', 'barra-track'],
+  'corpo-borboleta': ['bobina-v6', 'vela', 'coletor-admissao'], 'turbo': ['turbina', 'cartucho'], 'direcao': ['terminal-direcao', 'barra-axial', 'coifa-direcao']
+};
+let comparar = [];
+function fechaModal(id) { const m = $(id); if (m) m.remove(); }
+function criaModal(id, titulo, subtitulo) {
+  fechaModal(id);
+  const f = el('div', 'c3d-modal'); f.id = id; f.setAttribute('role', 'dialog'); f.setAttribute('aria-modal', 'true'); f.setAttribute('aria-label', titulo);
+  const cx = el('div', 'c3d-modal-cx'); const cab = el('div', 'c3d-modal-cab'); const t = el('div'); t.appendChild(el('h4', null, titulo)); if (subtitulo) t.appendChild(el('p', null, subtitulo)); cab.appendChild(t);
+  const x = el('button', 'c3d-modal-x', '\u00d7'); x.type = 'button'; x.setAttribute('aria-label', 'Fechar'); x.onclick = () => f.remove(); cab.appendChild(x); cx.appendChild(cab);
+  const corpo = el('div', 'c3d-modal-corpo'); cx.appendChild(corpo); f.appendChild(cx);
+  f.addEventListener('mousedown', (e) => { if (e.target === f) f.remove(); });
+  const tecla = (e) => { if (e.key === 'Escape') { e.stopPropagation(); f.remove(); document.removeEventListener('keydown', tecla, true); } };
+  document.addEventListener('keydown', tecla, true); document.body.appendChild(f); setTimeout(() => x.focus(), 30);
+  return corpo;
+}
+function contatoSalvo() { try { return JSON.parse(ler('apc_contato') || '{}') || {}; } catch (e) { return {}; } }
+/* orçamento (peça sem produto) e aviso de estoque (produto esgotado): WhatsApp, webhook e/ou e-mail da loja */
+function abrirLead(tipo, ctx) {
+  ctx = ctx || {}; const g = lerGaragem(), ct = contatoSalvo();
+  const veic = atual ? [atual.brand, atual.model, g.ano, g.motor].filter(Boolean).join(' ') : '';
+  const estoque = tipo === 'estoque';
+  const corpo = criaModal('c3d-lead', estoque ? 'Avise-me quando chegar' : 'Pedir orçamento', estoque ? (ctx.produto ? ctx.produto.nome : '') : 'Conte o que você procura e respondemos pelo WhatsApp.');
+  const campo = (rotulo, nome, valor, tipoIn, obrigatorio, ph) => { const l = el('label', 'c3d-lead-c'); l.appendChild(el('span', null, rotulo + (obrigatorio ? ' *' : ''))); const i = document.createElement(tipoIn === 'area' ? 'textarea' : 'input'); if (tipoIn !== 'area') i.type = tipoIn || 'text'; i.name = nome; i.value = valor || ''; if (ph) i.placeholder = ph; if (tipoIn === 'area') i.rows = 3; l.appendChild(i); corpo.appendChild(l); return i; };
+  const iNome = campo('Seu nome', 'nome', ct.nome, 'text', true), iZap = campo('WhatsApp (com DDD)', 'whats', ct.whats, 'tel', true, '(11) 99999-9999');
+  const iMail = campo('E-mail', 'email', ct.email, 'email', false), iVeic = campo('Veículo', 'veiculo', veic, 'text', false);
+  const iPeca = estoque ? null : campo('Peça procurada', 'peca', ctx.peca || '', 'text', true), iObs = campo('Observações (ano, versão, código da peça...)', 'obs', '', 'area', false);
+  const msg = el('p', 'c3d-lead-msg'); corpo.appendChild(msg);
+  const env = el('button', 'c3d-btn', estoque ? 'Quero ser avisado' : 'Enviar pedido'); env.type = 'button'; env.style.cssText = 'width:100%;border:0;cursor:pointer;font-family:inherit'; corpo.appendChild(env);
+  corpo.appendChild(el('small', 'c3d-lead-nota', 'Usamos seus dados só para responder a este pedido.'));
+  env.onclick = () => {
+    const zap = iZap.value.replace(/\D/g, '');
+    if (iNome.value.trim().length < 2) { msg.textContent = 'Informe o seu nome.'; iNome.focus(); return; }
+    if (zap.length < 10 || zap.length > 13) { msg.textContent = 'Informe um WhatsApp com DDD.'; iZap.focus(); return; }
+    if (iPeca && iPeca.value.trim().length < 2) { msg.textContent = 'Diga qual peça você procura.'; iPeca.focus(); return; }
+    const dados = { tipo: tipo, nome: iNome.value.trim(), whats: zap, email: iMail.value.trim(), veiculo: iVeic.value.trim(), peca: iPeca ? iPeca.value.trim() : '', produto: ctx.produto ? ctx.produto.nome : '', url: ctx.produto ? ctx.produto.url : '', obs: iObs.value.trim(), loja: CFG.loja.nome || '', t: new Date().toISOString() };
+    guardar('apc_contato', JSON.stringify({ nome: dados.nome, whats: zap, email: dados.email }));
+    const L = CFG.leads || {};
+    if (L.webhook) fetch(L.webhook, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=UTF-8' }, body: JSON.stringify(dados) }).catch(() => {});
+    track(estoque ? 'c3d_estoque_aviso' : 'c3d_orcamento', { parte: ctx.parte || '', carro: atual && atual.id, produto: dados.produto, peca: dados.peca });
+    const texto = (estoque ? 'Olá! Quero ser avisado quando chegar: ' + dados.produto : 'Olá! Quero um orçamento de ' + dados.peca) + (dados.veiculo ? '\nVeículo: ' + dados.veiculo : '') + (dados.obs ? '\nObs.: ' + dados.obs : '') + '\nNome: ' + dados.nome + '\nWhatsApp: ' + zap + (dados.email ? '\nE-mail: ' + dados.email : '') + (dados.url ? '\n' + dados.url : '');
+    if (WHATSAPP) window.open('https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent(texto), '_blank', 'noopener');
+    else if (L.email && !L.webhook) location.href = 'mailto:' + L.email + '?subject=' + encodeURIComponent(estoque ? 'Aviso de estoque' : 'Pedido de orçamento') + '&body=' + encodeURIComponent(texto);
+    corpo.textContent = ''; corpo.appendChild(el('div', 'c3d-vazio', '')); const ok = corpo.firstChild; ok.appendChild(el('strong', null, 'Pedido enviado!')); ok.appendChild(document.createTextNode('Vamos responder pelo WhatsApp informado. Obrigado!'));
+  };
+}
+function botaoLead(tipo, ctx) {
+  const b = el('button', 'c3d-btn sec c3d-lead-bt', tipo === 'estoque' ? 'Avise-me quando chegar' : 'Pedir orçamento desta peça'); b.type = 'button';
+  b.style.cssText = 'margin:10px 0 0;width:100%;border:0;cursor:pointer;font-family:inherit;background:linear-gradient(135deg,#ff8a4c,#ff6a2a);color:#fff'; b.onclick = () => abrirLead(tipo, ctx); return b;
+}
+/* oficinas parceiras (loja.config.json → "oficinas") */
+function botaoOficina(z) {
+  if (!(CFG.oficinas && CFG.oficinas.length)) return null;
+  const b = el('button', 'c3d-btn sec', 'Instalar com um parceiro'); b.type = 'button'; b.style.cssText = 'margin:10px 0 0;width:100%;border:0;cursor:pointer;font-family:inherit';
+  b.onclick = () => abrirOficinas(z); return b;
+}
+function abrirOficinas(z) {
+  const g = lerGaragem(), Z = ZONAS[z], corpo = criaModal('c3d-ofi', 'Instalar com um parceiro', 'Oficinas indicadas pela loja' + (g.uf ? ' (primeiro as de ' + g.uf + ')' : '') + '.');
+  const lista = CFG.oficinas.slice().sort((a, b) => (b.uf === g.uf) - (a.uf === g.uf));
+  lista.forEach((o) => {
+    const c = el('div', 'c3d-ofi-c'); const t = el('div'); t.appendChild(el('b', null, o.nome)); t.appendChild(el('small', null, [o.endereco, o.cidade && o.uf ? o.cidade + '/' + o.uf : (o.cidade || o.uf)].filter(Boolean).join(' \u00b7 '))); c.appendChild(t);
+    const ac = el('div', 'c3d-ofi-ac'); const zap = String(o.whatsapp || o.tel || '').replace(/\D/g, '');
+    if (zap) { const a = el('a', 'c3d-btn', 'WhatsApp'); a.href = 'https://wa.me/' + (zap.length <= 11 ? '55' + zap : zap) + '?text=' + encodeURIComponent('Olá! Comprei ' + Z.nome.toLowerCase() + ' na ' + (CFG.loja.nome || 'loja') + ' e quero instalar no meu ' + (atual ? atual.brand + ' ' + atual.model : 'veículo') + '. Pode me passar valor e prazo?'); a.target = '_blank'; a.rel = 'noopener'; a.onclick = () => track('c3d_oficina', { oficina: o.nome, parte: z }); ac.appendChild(a); }
+    if (o.mapa) { const m = el('a', 'c3d-btn sec', 'Mapa'); m.href = o.mapa; m.target = '_blank'; m.rel = 'noopener'; ac.appendChild(m); }
+    c.appendChild(ac); corpo.appendChild(c);
+  });
+}
+/* kits e "costuma ser trocado junto" */
+async function levarKit(kit, btn, itens) {
+  if (CFG.plataforma !== 'iset') { document.querySelectorAll('.c3d-kit-i a').forEach((a) => { a.style.textDecoration = 'underline'; }); avisar('Abra cada item do kit pelos links acima.'); return; }
+  btn.disabled = true; const antes = btn.textContent; btn.textContent = 'Adicionando\u2026';
+  for (const pr of itens) { const pid = (pr.url.match(/-p(\d+)(?:[\/?#]|$)/) || [])[1]; if (!pid) continue; const fake = { textContent: '', disabled: false, classList: { add() {}, remove() {} } }; try { await adicionarCarrinho(pid, fake, pr); } catch (e) {} }
+  track('c3d_kit', { kit: kit.id || kit.nome }); btn.textContent = 'Kit adicionado \u2713'; setTimeout(() => { btn.disabled = false; btn.textContent = antes; }, 3000);
+}
+function blocoConjunto(z, box, atuais) {
+  if (!CAT) return;
+  const vistos = new Set((atuais || []).map((x) => x.url)), ks = chavesDaZona(z);
+  (CAT.kits || []).filter((k) => (k.itens || []).some((sku) => { const pr = CAT.produtos.find((x) => x.sku === sku); return pr && (pr.pecas || []).some((pk) => ks.indexOf(pk) >= 0); })).slice(0, 2).forEach((k) => {
+    const itens = (k.itens || []).map((sku) => CAT.produtos.find((x) => x.sku === sku)).filter(Boolean).map((pr) => Object.assign({}, pr, { preco: fmtPreco(pr.preco) }));
+    if (itens.length < 2) return;
+    const soma = itens.reduce((a, x) => a + (numPreco(x.preco) || 0), 0), desc = k.desconto ? soma * (1 - k.desconto / 100) : soma;
+    const w = el('div', 'c3d-kit'); w.appendChild(el('div', 'c3d-sec-t', 'Kit completo')); w.appendChild(el('b', null, k.nome));
+    const ul = el('ul', 'c3d-kit-i'); itens.forEach((x) => { const li = el('li'); const a = el('a', null, x.nome); a.href = x.url; li.appendChild(a); li.appendChild(el('span', null, x.preco)); ul.appendChild(li); }); w.appendChild(ul);
+    const pr = el('div', 'c3d-kit-p'); if (k.desconto && soma) pr.appendChild(el('s', null, fmtPreco(soma))); pr.appendChild(document.createTextNode(fmtPreco(desc))); if (k.desconto) pr.appendChild(el('em', null, ' ' + k.desconto + '% off no kit')); w.appendChild(pr);
+    const b = el('button', 'c3d-add', CFG.plataforma === 'iset' ? 'Levar o kit completo' : 'Ver os itens do kit'); b.type = 'button'; b.onclick = () => levarKit(k, b, itens); w.appendChild(b); box.appendChild(w);
+  });
+  const rel = COSTUMA[z] || COSTUMA[ZONAS[z].maq] || [], outros = [];
+  rel.forEach((kz) => produtosDaZona(kz).forEach((pr) => { if (!vistos.has(pr.url) && pr._st !== 'nao' && outros.length < 3) { vistos.add(pr.url); outros.push(pr); } }));
+  if (outros.length) { box.appendChild(el('div', 'c3d-sec-t', 'Costuma ser trocado junto')); const ul = el('ul', 'c3d-lista'); montarItens(ul, outros, z, 'junto'); box.appendChild(ul); }
+}
+/* comparar produtos (até 3) */
+function alternarComparar(pr, ck) {
+  const i = comparar.findIndex((x) => x.url === pr.url);
+  if (i >= 0) comparar.splice(i, 1); else { if (comparar.length >= 3) { ck.checked = false; avisar('Compare até 3 produtos.'); return; } comparar.push(pr); }
+  barraComparar();
+}
+function barraComparar() {
+  let b = $('c3d-cmp-bar'); const pn = $('c3d-painel');
+  if (!comparar.length) { if (b) b.remove(); return; }
+  if (!b) { b = el('div', 'c3d-cmp-bar'); b.id = 'c3d-cmp-bar'; pn.insertBefore(b, pn.querySelector('.c3d-pf')); }
+  b.textContent = ''; b.appendChild(el('span', null, 'Comparar (' + comparar.length + '/3)'));
+  const ab = el('button', null, 'Abrir comparação'); ab.type = 'button'; ab.disabled = comparar.length < 2; ab.onclick = abrirComparacao; b.appendChild(ab);
+  const lp = el('button', 'lp', 'Limpar'); lp.type = 'button'; lp.onclick = () => { comparar = []; barraComparar(); document.querySelectorAll('.c3d-cmp input').forEach((i) => { i.checked = false; }); }; b.appendChild(lp);
+}
+function abrirComparacao() {
+  track('c3d_comparar', { produtos: comparar.map((x) => x.nome).join(' | ') });
+  const corpo = criaModal('c3d-cmp', 'Comparar produtos', atual ? 'Para o ' + atual.brand + ' ' + atual.model : '');
+  const tb = document.createElement('table'); tb.className = 'c3d-cmp-t';
+  const linhas = [
+    ['', (x) => { const d = el('div'); if (x.img) { const im = document.createElement('img'); im.src = x.img; im.alt = ''; im.loading = 'lazy'; d.appendChild(im); } const a = el('a', null, x.nome); a.href = x.url; d.appendChild(a); return d; }],
+    ['Preço', (x) => { const d = el('b', null, x.preco || '\u2014'); return d; }],
+    ['Serve no seu veículo', (x) => { if (!x.veiculos && x._st == null) return document.createTextNode('\u2014'); const sc = x._st ? { st: x._st, msg: x._msg } : statusCompat(x); return el('span', 'c3d-bd ' + (sc.st === 'serve' || sc.st === 'universal' ? 'ok' : sc.st === 'nao' ? 'nao' : 'chk'), sc.msg); }],
+    ['Tipo', (x) => document.createTextNode(x.tipo ? x.tipo.charAt(0).toUpperCase() + x.tipo.slice(1) : '\u2014')],
+    ['Marca', (x) => document.createTextNode(x.marca || '\u2014')],
+    ['Garantia', (x) => document.createTextNode(x.garantia || '\u2014')],
+    ['Código OEM', (x) => document.createTextNode(x.oem && x.oem.length ? x.oem.slice(0, 2).join(' \u00b7 ') : '\u2014')],
+    ['Entrega', (x) => document.createTextNode(freteDe(x) || '\u2014')],
+    ['', (x) => { const a = el('a', 'c3d-add', 'Ver produto'); a.href = x.url; return a; }]
+  ];
+  linhas.forEach(([rot, fn]) => { const tr = document.createElement('tr'); const th = document.createElement('th'); th.textContent = rot; tr.appendChild(th); comparar.forEach((x) => { const td = document.createElement('td'); td.appendChild(fn(x)); tr.appendChild(td); }); tb.appendChild(tr); });
+  const w = el('div', 'c3d-cmp-w'); w.appendChild(tb); corpo.appendChild(w);
+}
 function botaoSemelhantes(z) {
   const b = el('button', 'c3d-btn sec c3d-sem', 'Ver produtos semelhantes'); b.type = 'button';
   b.style.cssText = 'margin:14px 0 0;width:100%;border:0;cursor:pointer;font-family:inherit;background:rgba(255,122,61,.16);box-shadow:inset 0 0 0 1px #ff7a3d';
@@ -1595,7 +1950,7 @@ async function mostrarSemelhantes(z) {
     const ul = el('ul', 'c3d-lista'); montarItens(ul, achados.slice(0, 12), z, 'semelhante'); box.appendChild(ul); entradaLista(ul);
     $('c3d-ph-sub').textContent = destaques ? 'Ainda não há peças parecidas cadastradas. Mostrando outros produtos da loja (teste): podem não servir no ' + atual.model + '.' : achados.length + (achados.length > 1 ? ' produtos semelhantes' : ' produto semelhante') + '. Podem não servir no ' + atual.model + ': confira a compatibilidade.';
   } else {
-    const v = el('div', 'c3d-vazio'); v.appendChild(el('strong', null, 'Nenhum produto semelhante encontrado')); v.appendChild(document.createTextNode('Veja todas as peças do ' + atual.model + ' na loja ou fale com a gente.'));
+    const v = el('div', 'c3d-vazio'); v.appendChild(el('strong', null, 'Nenhum produto semelhante encontrado')); v.appendChild(document.createTextNode('Veja todas as peças do ' + atual.model + ' na loja ou fale com a gente.')); v.appendChild(botaoLead('orcamento', { parte: z, peca: Z.nome }));
     if (WHATSAPP) { const w = el('a', 'c3d-btn c3d-zap', 'Pedir esta peça no WhatsApp'); w.style.marginTop = '14px'; w.target = '_blank'; w.rel = 'noopener'; w.href = 'https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent('Olá! Procuro ' + Z.nome.toLowerCase() + ' para ' + atual.brand + ' ' + atual.model + '.'); v.appendChild(w); }
     box.appendChild(v); $('c3d-ph-sub').textContent = '0 produtos';
   }
@@ -1606,6 +1961,7 @@ async function mostrarSemelhantes(z) {
 document.querySelectorAll('.c3d-mapa .z').forEach((g) => { g.setAttribute('tabindex', '0'); g.setAttribute('role', 'button'); g.setAttribute('aria-label', ZONAS[g.dataset.z].nome); g.onclick = () => escolher(g.dataset.z, true); g.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); escolher(g.dataset.z, true); } }; });
 function voltarPartes(sisId) { seq++; zonaAtual = null; desfazerExplosao(); irGaveta('peek'); sincronizarUrl(null); painelInicial(sisId || null); mv.cameraOrbit = vista(32, 74, 105); $('c3d-dica').classList.remove('off'); }
 function voltarNivel() {
+  if (emGuia) { emGuia = false; escolher(guiaZ, true); return; }
   const z = zonaAtual;
   if (!emDiag && z && ZONAS[z]) {
     const mq = ZONAS[z].maq;

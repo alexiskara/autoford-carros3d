@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel de Demanda</title>
+<style>
+:root{--bg:#0f1318;--card:#171d25;--card2:#1e2630;--borda:#2a3441;--txt:#e6ebf2;--mudo:#9aa7b8;--azul:#4da3ff;--verde:#3ecf8e;--ambar:#f5b942;--verm:#ff6b6b;--foco:#ffd166}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{padding:16px;border-bottom:1px solid var(--borda)}
+h1{margin:0 0 4px;font-size:1.35rem}
+h2{margin:0 0 4px;font-size:1.05rem}
+p.sub{margin:0;color:var(--mudo)}
+main{max-width:1200px;margin:0 auto;padding:16px}
+.barra{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));background:var(--card);border:1px solid var(--borda);border-radius:10px;padding:12px;margin-bottom:16px}
+label{display:block;font-size:.8rem;color:var(--mudo);margin-bottom:3px}
+input,select,button{font:inherit;color:var(--txt);background:var(--card2);border:1px solid var(--borda);border-radius:8px;padding:8px 10px;width:100%}
+button{cursor:pointer;width:auto}
+button:hover{border-color:var(--azul)}
+button.prim{background:var(--azul);color:#06121f;border-color:var(--azul);font-weight:600}
+:focus-visible{outline:2px solid var(--foco);outline-offset:2px}
+.linha{display:flex;gap:8px;flex-wrap:wrap;align-items:end}
+.zona{border:2px dashed var(--borda);border-radius:10px;padding:10px;text-align:center;color:var(--mudo)}
+.zona.sobre{border-color:var(--azul);color:var(--txt)}
+.grade{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+@media(max-width:420px){.grade{grid-template-columns:1fr}}
+section.card{background:var(--card);border:1px solid var(--borda);border-radius:10px;padding:14px;min-width:0}
+section.larga{grid-column:1/-1}
+.expl{margin:0 0 10px;color:var(--mudo);font-size:.85rem}
+.kpis{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}
+.kpi{background:var(--card2);border-radius:8px;padding:10px}
+.kpi b{display:block;font-size:1.6rem}
+.kpi span{color:var(--mudo);font-size:.8rem}
+.item{display:grid;grid-template-columns:minmax(80px,40%) 1fr auto;gap:8px;align-items:center;margin:5px 0;font-size:.88rem}
+.item .nome{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trilho{background:var(--card2);border-radius:5px;height:12px;overflow:hidden}
+.trilho i{display:block;height:100%;background:var(--azul);border-radius:5px}
+.trilho i.verm{background:var(--verm)}.trilho i.verde{background:var(--verde)}.trilho i.ambar{background:var(--ambar)}
+.item small{color:var(--mudo);display:block}
+.vazio{color:var(--mudo);font-style:italic}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th,td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--borda);vertical-align:top}
+th{color:var(--mudo);font-weight:600}
+td.n{text-align:right;white-space:nowrap}
+#status{margin-top:8px;font-size:.85rem;color:var(--mudo)}
+#status.erro{color:var(--verm)}
+.aviso{background:#2a2312;border:1px solid var(--ambar);color:var(--ambar);border-radius:8px;padding:6px 10px;margin-bottom:12px;display:none}
+.sr{position:absolute;left:-9999px}
+svg text{fill:var(--mudo);font-size:10px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Painel de Demanda</h1>
+  <p class="sub">O que seus clientes procuram, e o que eles procuram e você não tem.</p>
+</header>
+<main>
+  <div class="aviso" id="avisoDemo" role="status">Modo demonstração: dados fictícios gerados neste navegador.</div>
+
+  <div class="barra" aria-label="Fonte de dados e filtros">
+    <div>
+      <label for="url">Endereço do receptor (URL do Web App)</label>
+      <input id="url" type="url" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off">
+    </div>
+    <div>
+      <label for="token">Token</label>
+      <input id="token" type="password" autocomplete="off">
+    </div>
+    <div class="linha">
+      <button class="prim" id="btCarregar" type="button">Carregar do receptor</button>
+      <button id="btDemo" type="button">Modo demonstração</button>
+    </div>
+    <div class="zona" id="zona" tabindex="0" role="button" aria-label="Arraste um arquivo JSON ou CSV aqui ou pressione Enter para escolher">
+      Arraste aqui um arquivo .json ou .csv (ou clique)
+      <input type="file" id="arquivo" accept=".json,.csv,.txt" class="sr" tabindex="-1">
+    </div>
+    <div>
+      <label for="periodo">Período</label>
+      <select id="periodo">
+        <option value="7">Últimos 7 dias</option>
+        <option value="30" selected>Últimos 30 dias</option>
+        <option value="90">Últimos 90 dias</option>
+        <option value="0">Tudo</option>
+      </select>
+    </div>
+    <div>
+      <label for="veiculo">Veículo</label>
+      <select id="veiculo"><option value="">Todos os veículos</option></select>
+    </div>
+  </div>
+  <div id="status" role="status" aria-live="polite">Nenhum dado carregado. Use o receptor, um arquivo ou a demonstração.</div>
+
+  <div class="grade" id="grade" style="margin-top:16px">
+    <section class="card larga" aria-labelledby="t-visitas">
+      <h2 id="t-visitas">Visitas e atividade</h2>
+      <p class="expl">Quantas sessões (visitas) e eventos o site registrou no período, e como evoluem por dia.</p>
+      <div class="kpis" id="kpis"></div>
+      <div id="serie" style="margin-top:12px"></div>
+    </section>
+    <section class="card" aria-labelledby="t-funil">
+      <h2 id="t-funil">Funil de compra</h2>
+      <p class="expl">Quantas sessões chegam em cada etapa: veículo aberto, parte escolhida, com resultado, clique em produto e carrinho.</p>
+      <div id="funil"></div>
+    </section>
+    <section class="card" aria-labelledby="t-conv">
+      <h2 id="t-conv">Taxa de conversão por etapa</h2>
+      <p class="expl">Percentual de sessões que avançam da etapa anterior para a seguinte (e do início até o fim).</p>
+      <div id="conv"></div>
+    </section>
+    <section class="card larga" aria-labelledby="t-perdida">
+      <h2 id="t-perdida">Demanda perdida</h2>
+      <p class="expl">Peças que clientes procuraram e você não tem produto cadastrado (sem resultado, busca com 0 resultados, semelhantes com 0). Cadastre-as para vender mais.</p>
+      <div class="linha" style="margin-bottom:8px">
+        <button type="button" id="btCopiar">Copiar lista</button>
+        <button type="button" id="btCsv">Exportar CSV</button>
+        <span id="msgPerdida" class="expl" role="status" aria-live="polite" style="margin:0"></span>
+      </div>
+      <div id="perdida"></div>
+    </section>
+    <section class="card" aria-labelledby="t-top">
+      <h2 id="t-top">Peças mais procuradas</h2>
+      <p class="expl">As partes escolhidas e os termos digitados na busca, do mais para o menos frequente.</p>
+      <div id="top"></div>
+    </section>
+    <section class="card" aria-labelledby="t-sint">
+      <h2 id="t-sint">Sintomas do diagnóstico</h2>
+      <p class="expl">Os sintomas que os clientes mais descrevem no diagnóstico, indicando problemas comuns.</p>
+      <div id="sintomas"></div>
+    </section>
+    <section class="card" aria-labelledby="t-veic">
+      <h2 id="t-veic">Veículos mais abertos</h2>
+      <p class="expl">Os modelos que mais despertam interesse, para orientar seu estoque.</p>
+      <div id="veiculos"></div>
+    </section>
+    <section class="card" aria-labelledby="t-prod">
+      <h2 id="t-prod">Produtos mais clicados</h2>
+      <p class="expl">Os produtos que mais recebem cliques e quantos foram ao carrinho.</p>
+      <div id="produtos"></div>
+    </section>
+    <section class="card larga" aria-labelledby="t-ar">
+      <h2 id="t-ar">Uso do AR e do 3D</h2>
+      <p class="expl">Quanto os recursos visuais (realidade aumentada, 3D, mapa, sistemas, compatibilidade) são usados.</p>
+      <div class="kpis" id="recursos"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+"use strict";
+// ===================== AGREGAÇÃO (funções puras; testadas em Node) =====================
+// <<AGREGACAO-INICIO>>
+var ETAPAS = [
+  { id: "veiculo", nome: "Veículo aberto" },
+  { id: "parte", nome: "Parte escolhida" },
+  { id: "resultado", nome: "Com resultado" },
+  { id: "produto", nome: "Clique em produto" },
+  { id: "carrinho", nome: "Carrinho" }
+];
+
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  });
+}
+
+// Texto seguro e curto para qualquer campo desconhecido.
+function txt(v, max) {
+  if (v == null) return "";
+  if (typeof v === "object") { try { v = JSON.stringify(v); } catch (e) { v = ""; } }
+  v = String(v).replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim();
+  return v.length > (max || 120) ? v.slice(0, max || 120) : v;
+}
+
+function chaveTexto(s) {
+  return txt(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+
+function num(v) {
+  var n = Number(v);
+  return isFinite(n) ? n : null;
+}
+
+// Normaliza um evento bruto; devolve null se inválido. Remove campos de IP.
+function normalizarEvento(e) {
+  if (!e || typeof e !== "object") return null;
+  var ev = txt(e.ev, 60);
+  if (!ev) return null;
+  var d = new Date(e.t);
+  var ts = d.getTime();
+  if (!isFinite(ts)) return null;
+  var o = { ts: ts, ev: ev, loja: txt(e.loja, 60), s: txt(e.s, 80) || "anon", d: {} };
+  for (var k in e) {
+    if (k === "t" || k === "ev" || k === "loja" || k === "s") continue;
+    if (/^(ip|ipv4|ipv6|ua|user_?agent|email|telefone|fone|cpf)$/i.test(k)) continue;
+    o.d[k] = e[k];
+  }
+  return o;
+}
+
+function normalizarLista(lista) {
+  var r = [];
+  for (var i = 0; i < (lista || []).length; i++) {
+    var n = normalizarEvento(lista[i]);
+    if (n) r.push(n);
+  }
+  return r;
+}
+
+function veiculoDe(e) {
+  var d = e.d;
+  return txt(d.carro || d.veiculo || "", 80);
+}
+
+function filtrar(eventos, op) {
+  op = op || {};
+  var agora = op.agora == null ? Date.now() : op.agora;
+  var corte = op.dias > 0 ? agora - op.dias * 86400000 : -Infinity;
+  return eventos.filter(function (e) {
+    if (e.ts < corte) return false;
+    if (op.veiculo && veiculoDe(e) !== op.veiculo) return false;
+    return true;
+  });
+}
+
+function listaVeiculos(eventos) {
+  var m = {};
+  eventos.forEach(function (e) { var v = veiculoDe(e); if (v) m[v] = (m[v] || 0) + 1; });
+  return Object.keys(m).sort(function (a, b) { return m[b] - m[a] || a.localeCompare(b); });
+}
+
+// Contador com nome de exibição (a forma mais frequente) e sub-contagem por veículo.
+function Contador() { this.m = {}; }
+Contador.prototype.add = function (nome, veiculo) {
+  var chave = chaveTexto(nome);
+  if (!chave) return;
+  var it = this.m[chave] || (this.m[chave] = { chave: chave, nome: txt(nome), n: 0, veic: {} });
+  it.n++;
+  if (veiculo) it.veic[veiculo] = (it.veic[veiculo] || 0) + 1;
+};
+Contador.prototype.lista = function (limite) {
+  var r = Object.keys(this.m).map(function (k) { return this.m[k]; }, this);
+  r.sort(function (a, b) { return b.n - a.n || a.nome.localeCompare(b.nome); });
+  return limite ? r.slice(0, limite) : r;
+};
+
+function agregar(eventos) {
+  var sess = {}, dias = {}, porEv = {};
+  var etapas = {};
+  ETAPAS.forEach(function (x) { etapas[x.id] = {}; });
+  var top = new Contador(), perdida = new Contador(), sint = new Contador(),
+      veic = new Contador(), prod = new Contador(), carr = new Contador();
+  var rec = { ar: 0, arTipos: new Contador(), ver3d: 0, mapa: 0, sistema: 0, compat: 0, semelhantes: 0, semelhantesClique: 0 };
+
+  eventos.forEach(function (e) {
+    var d = e.d, v = veiculoDe(e);
+    sess[e.s] = 1;
+    porEv[e.ev] = (porEv[e.ev] || 0) + 1;
+    var dia = new Date(e.ts).toISOString().slice(0, 10);
+    dias[dia] = dias[dia] || { eventos: 0, s: {} };
+    dias[dia].eventos++; dias[dia].s[e.s] = 1;
+
+    switch (e.ev) {
+      case "c3d_carro": etapas.veiculo[e.s] = 1; veic.add(v || [d.marca, d.modelo].filter(Boolean).join(" ")); break;
+      case "c3d_parte": etapas.parte[e.s] = 1; top.add(d.parte, v); break;
+      case "c3d_resultados":
+        if (num(d.quantidade) > 0) etapas.resultado[e.s] = 1;
+        break;
+      case "c3d_sem_resultado": perdida.add(d.parte, v); break;
+      case "c3d_busca_zona":
+        top.add(d.termo, v);
+        if (num(d.resultados) === 0) perdida.add(d.termo, v);
+        break;
+      case "c3d_semelhantes":
+        rec.semelhantes++;
+        if (num(d.quantidade) === 0) perdida.add(d.parte, v);
+        break;
+      case "c3d_semelhantes_clique": rec.semelhantesClique++; break;
+      case "c3d_produto": etapas.produto[e.s] = 1; prod.add(d.produto, v); break;
+      case "c3d_carrinho": etapas.carrinho[e.s] = 1; carr.add(d.produto, v); break;
+      case "c3d_diagnostico": sint.add(d.sintoma, v); break;
+      case "c3d_ar": rec.ar++; rec.arTipos.add(d.tipo || "(não informado)"); break;
+      case "compat_ver_3d": rec.ver3d++; break;
+      case "c3d_mapa": rec.mapa++; break;
+      case "c3d_sistema": rec.sistema++; break;
+      case "compat_abrir": rec.compat++; break;
+    }
+  });
+
+  var funil = ETAPAS.map(function (x) {
+    return { id: x.id, nome: x.nome, n: Object.keys(etapas[x.id]).length };
+  });
+  var conv = funil.map(function (f, i) {
+    var ant = i ? funil[i - 1].n : null;
+    return {
+      nome: f.nome, n: f.n,
+      deAnterior: i && ant > 0 ? f.n / ant : null,
+      doInicio: funil[0].n > 0 ? f.n / funil[0].n : null
+    };
+  });
+  // Produtos: cliques e adições ao carrinho.
+  var cm = {};
+  carr.lista().forEach(function (c) { cm[c.chave] = c.n; });
+  var produtos = prod.lista().map(function (p) { return { nome: p.nome, n: p.n, carrinho: cm[p.chave] || 0 }; });
+
+  var serie = Object.keys(dias).sort().map(function (k) {
+    return { dia: k, eventos: dias[k].eventos, sessoes: Object.keys(dias[k].s).length };
+  });
+
+  return {
+    sessoes: Object.keys(sess).length,
+    totalEventos: eventos.length,
+    porEvento: porEv,
+    serie: serie,
+    funil: funil,
+    conversao: conv,
+    topPartes: top.lista(),
+    demandaPerdida: perdida.lista(),
+    sintomas: sint.lista(),
+    veiculos: veic.lista(),
+    produtos: produtos,
+    recursos: {
+      ar: rec.ar, arTipos: rec.arTipos.lista(), ver3d: rec.ver3d, mapa: rec.mapa,
+      sistema: rec.sistema, compat: rec.compat, semelhantes: rec.semelhantes,
+      semelhantesClique: rec.semelhantesClique
+    }
+  };
+}
+
+function celulaCsv(v) {
+  v = String(v == null ? "" : v);
+  // Evita injeção de fórmula em planilhas.
+  if (/^[=+\-@\t\r]/.test(v)) v = "'" + v;
+  return /[",;\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+}
+
+function demandaParaCsv(lista) {
+  var linhas = ["peca;vezes;veiculos"];
+  lista.forEach(function (p) {
+    var vs = Object.keys(p.veic).sort(function (a, b) { return p.veic[b] - p.veic[a]; })
+      .map(function (k) { return k + " (" + p.veic[k] + ")"; }).join(" | ");
+    linhas.push([celulaCsv(p.nome), p.n, celulaCsv(vs)].join(";"));
+  });
+  return linhas.join("\n");
+}
+
+function demandaParaTexto(lista) {
+  return lista.map(function (p) { return p.nome + " (" + p.n + "x)"; }).join("\n");
+}
+
+// Analisador de CSV (aceita , ou ; e aspas). Devolve lista de arrays.
+function parseCsv(texto) {
+  texto = String(texto).replace(/^﻿/, "");
+  var primeira = texto.split(/\r?\n/)[0] || "";
+  var sep = (primeira.split(";").length > primeira.split(",").length) ? ";" : ",";
+  var linhas = [], lin = [], cel = "", asp = false;
+  for (var i = 0; i < texto.length; i++) {
+    var c = texto[i];
+    if (asp) {
+      if (c === '"') { if (texto[i + 1] === '"') { cel += '"'; i++; } else asp = false; }
+      else cel += c;
+    } else if (c === '"') asp = true;
+    else if (c === sep) { lin.push(cel); cel = ""; }
+    else if (c === "\n" || c === "\r") {
+      if (c === "\r" && texto[i + 1] === "\n") i++;
+      lin.push(cel); cel = "";
+      if (lin.length > 1 || lin[0] !== "") linhas.push(lin);
+      lin = [];
+    } else cel += c;
+  }
+  if (cel !== "" || lin.length) { lin.push(cel); linhas.push(lin); }
+  return linhas;
+}
+
+// Converte o conteúdo de um arquivo (JSON, JSON por linhas ou CSV) em lista de eventos brutos.
+function eventosDeTexto(texto) {
+  texto = String(texto).trim();
+  if (!texto) return [];
+  var c = texto[0];
+  if (c === "[" || c === "{") {
+    try {
+      var j = JSON.parse(texto);
+      if (Array.isArray(j)) return j;
+      if (Array.isArray(j.eventos)) return j.eventos;
+      if (j && j.ev) return [j];
+    } catch (e) {
+      var out = [];
+      texto.split(/\r?\n/).forEach(function (l) { try { out.push(JSON.parse(l)); } catch (x) {} });
+      if (out.length) return out;
+    }
+    return [];
+  }
+  var tab = parseCsv(texto);
+  if (tab.length < 2) return [];
+  var cab = tab[0].map(function (h) { return h.trim(); });
+  var r = [];
+  for (var i = 1; i < tab.length; i++) {
+    var o = {};
+    cab.forEach(function (h, k) {
+      var v = tab[i][k];
+      if (v == null || v === "" || !h) return;
+      if (h === "dados") { try { var x = JSON.parse(v); for (var kk in x) if (!(kk in o)) o[kk] = x[kk]; } catch (e) {} }
+      else o[h] = v;
+    });
+    r.push(o);
+  }
+  return r;
+}
+// <<AGREGACAO-FIM>>
+
+// ===================== DEMONSTRAÇÃO =====================
+function gerarDemo(n) {
+  var carros = ["Gol G5 1.0", "Palio 1.4", "Onix 1.0", "HB20 1.0", "Uno Mille", "Corolla 2.0", "Ka 1.0", "Civic 1.8"];
+  var partes = ["Pastilha de freio", "Disco de freio", "Amortecedor dianteiro", "Filtro de óleo", "Correia dentada", "Vela de ignição", "Bomba d'água", "Terminal de direção", "Bateria", "Farol", "Embreagem", "Cubo de roda"];
+  var sem = ["Coxim do câmbio", "Bieleta", "Sensor ABS", "Tampa do reservatório", "Retentor do virabrequim", "Cabo do acelerador"];
+  var sint = ["Barulho ao frear", "Carro puxando para um lado", "Luz do motor acesa", "Vibração no volante", "Fumaça branca", "Dificuldade para ligar"];
+  var prods = ["Pastilha Cobreq", "Filtro Mann W712", "Amortecedor Nakata", "Vela NGK", "Correia Gates"];
+  var evs = [], agora = Date.now();
+  function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
+  for (var i = 0; i < n; i++) {
+    var s = "demo" + i, t0 = agora - Math.random() * 60 * 86400000, c = pick(carros);
+    function add(ev, d, dt) { evs.push(Object.assign({ t: new Date(t0 + dt * 1000).toISOString(), ev: ev, loja: "Loja Demo", s: s }, d)); }
+    add("c3d_carro", { carro: c, marca: c.split(" ")[0], modelo: c }, 0);
+    if (Math.random() < 0.1) continue;
+    var p = Math.random() < 0.2 ? pick(sem) : pick(partes), achou = sem.indexOf(p) < 0;
+    add("c3d_parte", { carro: c, parte: p, origem: "mapa" }, 10);
+    if (Math.random() < 0.25) add("c3d_mapa", {}, 12);
+    if (Math.random() < 0.15) add("c3d_diagnostico", { carro: c, sintoma: pick(sint) }, 15);
+    if (Math.random() < 0.15) { var z = Math.random() < 0.4 ? pick(sem) : pick(partes); add("c3d_busca_zona", { termo: z, resultados: sem.indexOf(z) < 0 ? 3 : 0 }, 18); }
+    if (achou) {
+      add("c3d_resultados", { carro: c, parte: p, quantidade: 1 + Math.floor(Math.random() * 5), nivel: "exato" }, 20);
+      if (Math.random() < 0.5) { var pr = pick(prods); add("c3d_produto", { carro: c, parte: p, produto: pr, url: "#" }, 30);
+        if (Math.random() < 0.4) add("c3d_carrinho", { carro: c, produto: pr }, 40); }
+    } else {
+      add("c3d_sem_resultado", { carro: c, parte: p }, 20);
+      add("c3d_semelhantes", { carro: c, parte: p, quantidade: Math.random() < 0.5 ? 0 : 2 }, 22);
+    }
+    if (Math.random() < 0.08) add("c3d_ar", { tipo: pick(["camera", "modelo"]) }, 50);
+    if (Math.random() < 0.2) add("compat_ver_3d", { veiculo: c, produto: pick(prods) }, 55);
+    if (Math.random() < 0.1) add("c3d_sistema", { carro: c, sistema: pick(["Freios", "Suspensão", "Motor"]) }, 60);
+  }
+  return evs;
+}
+
+// ===================== INTERFACE =====================
+var $ = function (id) { return document.getElementById(id); };
+var TODOS = [];
+var ULTIMA = null;
+
+function salvar(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function ler(k) { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } }
+function status(msg, erro) { var s = $("status"); s.textContent = msg; s.className = erro ? "erro" : ""; }
+function pct(x) { return x == null ? "—" : (x * 100).toFixed(1).replace(".", ",") + "%"; }
+
+function barras(el, lista, opc) {
+  opc = opc || {};
+  var alvo = $(el);
+  if (!lista.length) { alvo.innerHTML = '<p class="vazio">Sem dados no período.</p>'; return; }
+  var max = Math.max.apply(null, lista.map(function (x) { return x.n; })) || 1;
+  alvo.innerHTML = lista.slice(0, opc.limite || 10).map(function (x) {
+    var extra = opc.extra ? opc.extra(x) : "";
+    return '<div class="item"><span class="nome" title="' + esc(x.nome) + '">' + esc(x.nome) + extra + '</span>' +
+      '<span class="trilho" aria-hidden="true"><i class="' + (opc.cor || "") + '" style="width:' + (x.n / max * 100).toFixed(1) + '%"></i></span>' +
+      '<b>' + x.n + '</b></div>';
+  }).join("");
+}
+
+function desenharSerie(serie) {
+  var el = $("serie");
+  if (serie.length < 2) { el.innerHTML = ""; return; }
+  var W = 600, H = 90, max = Math.max.apply(null, serie.map(function (s) { return s.sessoes; })) || 1;
+  var bw = W / serie.length;
+  var rects = serie.map(function (s, i) {
+    var h = Math.max(1, s.sessoes / max * (H - 16));
+    return '<rect x="' + (i * bw + 1).toFixed(1) + '" y="' + (H - 14 - h).toFixed(1) + '" width="' + Math.max(1, bw - 2).toFixed(1) +
+      '" height="' + h.toFixed(1) + '" fill="#4da3ff" rx="2"><title>' + esc(s.dia) + ": " + s.sessoes + " sessões</title></rect>";
+  }).join("");
+  el.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="Sessões por dia, de ' + esc(serie[0].dia) + ' a ' + esc(serie[serie.length - 1].dia) + '">' + rects +
+    '<text x="0" y="' + (H - 2) + '">' + esc(serie[0].dia) + '</text><text x="' + W + '" y="' + (H - 2) + '" text-anchor="end">' + esc(serie[serie.length - 1].dia) + '</text></svg>';
+}
+
+function kpi(rot, v) { return '<div class="kpi"><b>' + esc(v) + '</b><span>' + esc(rot) + '</span></div>'; }
+
+function render() {
+  var op = { dias: Number($("periodo").value), veiculo: $("veiculo").value };
+  var ev = filtrar(TODOS, op);
+  var a = ULTIMA = agregar(ev);
+  var perdidas = a.demandaPerdida.reduce(function (s, x) { return s + x.n; }, 0);
+  $("kpis").innerHTML = kpi("Sessões", a.sessoes) + kpi("Eventos", a.totalEventos) +
+    kpi("Veículos abertos", a.funil[0].n) + kpi("Buscas sem produto", perdidas) + kpi("Peças diferentes sem produto", a.demandaPerdida.length);
+  desenharSerie(a.serie);
+
+  var fm = a.funil[0].n || 1;
+  $("funil").innerHTML = a.funil.map(function (f) {
+    return '<div class="item"><span class="nome">' + esc(f.nome) + '</span><span class="trilho" aria-hidden="true"><i class="verde" style="width:' +
+      (f.n / fm * 100).toFixed(1) + '%"></i></span><b>' + f.n + '</b></div>';
+  }).join("");
+  $("conv").innerHTML = '<table><thead><tr><th>Etapa</th><th class="n">Sessões</th><th class="n">Da anterior</th><th class="n">Do início</th></tr></thead><tbody>' +
+    a.conversao.map(function (c) {
+      return '<tr><td>' + esc(c.nome) + '</td><td class="n">' + c.n + '</td><td class="n">' + pct(c.deAnterior) + '</td><td class="n">' + pct(c.doInicio) + '</td></tr>';
+    }).join("") + '</tbody></table>';
+
+  var pl = $("perdida");
+  if (!a.demandaPerdida.length) pl.innerHTML = '<p class="vazio">Nenhuma demanda perdida no período.</p>';
+  else pl.innerHTML = '<table><thead><tr><th>Peça procurada</th><th class="n">Vezes</th><th>Por veículo</th></tr></thead><tbody>' +
+    a.demandaPerdida.slice(0, 50).map(function (p) {
+      var vs = Object.keys(p.veic).sort(function (x, y) { return p.veic[y] - p.veic[x]; }).slice(0, 5)
+        .map(function (k) { return esc(k) + " (" + p.veic[k] + ")"; }).join(", ");
+      return '<tr><td>' + esc(p.nome) + '</td><td class="n"><b>' + p.n + '</b></td><td>' + (vs || '<span class="vazio">—</span>') + '</td></tr>';
+    }).join("") + '</tbody></table>';
+
+  barras("top", a.topPartes, { limite: 10 });
+  barras("sintomas", a.sintomas, { limite: 10, cor: "ambar" });
+  barras("veiculos", a.veiculos, { limite: 10 });
+  barras("produtos", a.produtos, { limite: 10, cor: "verde", extra: function (p) { return p.carrinho ? "<small>" + p.carrinho + " no carrinho</small>" : ""; } });
+
+  var r = a.recursos, ar = r.arTipos.map(function (t) { return t.nome + ": " + t.n; }).join(", ");
+  $("recursos").innerHTML = kpi("Usos do AR" + (ar ? " (" + ar + ")" : ""), r.ar) + kpi("Ver em 3D (compatibilidade)", r.ver3d) +
+    kpi("Aberturas de compatibilidade", r.compat) + kpi("Usos do mapa", r.mapa) + kpi("Sistemas explorados", r.sistema) +
+    kpi("Semelhantes mostrados / cliques", r.semelhantes + " / " + r.semelhantesClique);
+}
+
+function definirDados(brutos, origem) {
+  TODOS = normalizarLista(brutos);
+  var sel = $("veiculo"), atual = sel.value;
+  sel.innerHTML = '<option value="">Todos os veículos</option>' + listaVeiculos(TODOS).map(function (v) {
+    return '<option value="' + esc(v) + '">' + esc(v) + '</option>';
+  }).join("");
+  sel.value = atual && listaVeiculos(TODOS).indexOf(atual) >= 0 ? atual : "";
+  $("avisoDemo").style.display = origem === "demo" ? "block" : "none";
+  status(TODOS.length + " eventos válidos carregados (" + origem + ").");
+  render();
+}
+
+function carregarReceptor() {
+  var url = $("url").value.trim(), tk = $("token").value;
+  if (!/^https:\/\//i.test(url)) { status("Informe a URL do receptor (começando com https://).", true); return; }
+  salvar("painel_url", url); salvar("painel_token", tk);
+  var u = url + (url.indexOf("?") < 0 ? "?" : "&") + "token=" + encodeURIComponent(tk) + "&limite=20000";
+  status("Carregando…");
+  fetch(u).then(function (r) { return r.json(); }).then(function (j) {
+    if (j && j.erro) throw new Error(j.erro);
+    definirDados(Array.isArray(j) ? j : (j.eventos || []), "receptor");
+  }).catch(function (e) { status("Falha ao carregar: " + (e && e.message ? e.message : e), true); });
+}
+
+function lerArquivo(f) {
+  if (!f) return;
+  if (f.size > 50 * 1024 * 1024) { status("Arquivo grande demais (máx. 50 MB).", true); return; }
+  var fr = new FileReader();
+  fr.onload = function () {
+    var ev = eventosDeTexto(fr.result);
+    if (!ev.length) { status("Nenhum evento reconhecido no arquivo.", true); return; }
+    definirDados(ev, "arquivo " + txt(f.name, 40));
+  };
+  fr.onerror = function () { status("Não foi possível ler o arquivo.", true); };
+  fr.readAsText(f, "utf-8");
+}
+
+function baixar(nome, conteudo, tipo) {
+  var b = new Blob(["﻿" + conteudo], { type: tipo }), a = document.createElement("a");
+  a.href = URL.createObjectURL(b); a.download = nome; document.body.appendChild(a); a.click();
+  setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+
+function iniciar() {
+  $("url").value = ler("painel_url"); $("token").value = ler("painel_token");
+  $("btCarregar").onclick = carregarReceptor;
+  $("btDemo").onclick = function () { definirDados(gerarDemo(400), "demo"); };
+  $("periodo").onchange = $("veiculo").onchange = render;
+  var z = $("zona"), inp = $("arquivo");
+  z.onclick = function () { inp.click(); };
+  z.onkeydown = function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); inp.click(); } };
+  inp.onchange = function () { lerArquivo(inp.files[0]); };
+  z.ondragover = function (e) { e.preventDefault(); z.classList.add("sobre"); };
+  z.ondragleave = function () { z.classList.remove("sobre"); };
+  z.ondrop = function (e) { e.preventDefault(); z.classList.remove("sobre"); lerArquivo(e.dataTransfer.files[0]); };
+  $("btCopiar").onclick = function () {
+    if (!ULTIMA || !ULTIMA.demandaPerdida.length) { $("msgPerdida").textContent = "Nada para copiar."; return; }
+    var t = demandaParaTexto(ULTIMA.demandaPerdida);
+    var ok = function () { $("msgPerdida").textContent = "Lista copiada."; };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(ok, function () { $("msgPerdida").textContent = "Não foi possível copiar."; });
+    else { var ta = document.createElement("textarea"); ta.value = t; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); ok(); } catch (e) {} ta.remove(); }
+  };
+  $("btCsv").onclick = function () {
+    if (!ULTIMA || !ULTIMA.demandaPerdida.length) { $("msgPerdida").textContent = "Nada para exportar."; return; }
+    baixar("demanda-perdida.csv", demandaParaCsv(ULTIMA.demandaPerdida), "text/csv;charset=utf-8");
+  };
+  render();
+}
+if (typeof document !== "undefined") iniciar();
+</script>
+</body>
+</html>
