@@ -123,8 +123,8 @@ function inclinar(el) {
 {
   const CORES = [['Branco', '#e8e8e4'], ['Prata', '#8f98a3'], ['Preto', '#15161a'], ['Vermelho', '#d1102a'], ['Azul', '#1d3fd1'], ['Verde', '#0b7a3a'], ['Amarelo', '#f0b400']];
   const box = $('#ep-cores');
-  box.innerHTML = CORES.map((c) => '<button type="button" aria-label="Cor ' + c[0] + '" style="background:' + c[1] + '" data-c="' + c[1] + '"></button>').join('');
-  box.addEventListener('click', (ev) => { const b = ev.target.closest('button'); if (!b) return; const alvo = $('#ep-sil'); if (A && !reduz) A.animate(alvo, { color: b.dataset.c, duration: 700, ease: 'outQuart' }); else alvo.style.color = b.dataset.c; });
+  if (box) box.innerHTML = CORES.map((c) => '<button type="button" aria-label="Cor ' + c[0] + '" style="background:' + c[1] + '" data-c="' + c[1] + '"></button>').join('');
+  if (box) box.addEventListener('click', (ev) => { const b = ev.target.closest('button'); if (!b) return; const alvo = $('#ep-sil'); if (A && !reduz) A.animate(alvo, { color: b.dataset.c, duration: 700, ease: 'outQuart' }); else alvo.style.color = b.dataset.c; });
 }
 { const im = $('#ep-b-img'); const c = carros.find((x) => x.id === 'chevrolet-onix') || carros[0]; if (im && c) im.src = BASE + '/posters/poster-' + c.id + '.webp'; }
 
